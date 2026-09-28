@@ -1,0 +1,14 @@
+{
+  "name": "girlies-glow-content-scheduler",
+  "version": "1.0.0",
+  "description": "Girlies Glow Social Media Content Scheduler & Preview Dashboard",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
