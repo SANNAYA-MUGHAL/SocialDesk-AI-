@@ -87,6 +87,28 @@ test('blocks arbitrary or non-business Facebook destination', () => {
   assert.equal(result.error, 'Facebook destination is personal profile. Select Girlies Glow Facebook Page.');
 });
 
+test('blocks unofficial Facebook groups (e.g. girlies glow unofficial facebook group)', () => {
+  const postGroup = {
+    destinations: {
+      instagram: '@girli_esglow',
+      facebookPage: 'girlies glow unofficial facebook group'
+    }
+  };
+  const resultGroup = validateDestinations(postGroup);
+  assert.equal(resultGroup.isValid, false);
+  assert.equal(resultGroup.error, 'Facebook destination is personal profile. Select Girlies Glow Facebook Page.');
+
+  const postGenericGroup = {
+    destinations: {
+      instagram: '@girli_esglow',
+      facebookPage: 'Girlies Glow Community Group'
+    }
+  };
+  const resultGenericGroup = validateDestinations(postGenericGroup);
+  assert.equal(resultGenericGroup.isValid, false);
+  assert.equal(resultGenericGroup.error, 'Facebook destination is personal profile. Select Girlies Glow Facebook Page.');
+});
+
 test('allows Instagram destination with official URL', () => {
   const post = {
     destinations: {
@@ -129,8 +151,11 @@ test('validates top-level facebookPage in partial update payload (Task 4 compati
   assert.equal(res.error, 'Facebook destination is personal profile. Select Girlies Glow Facebook Page.');
 });
 
+// --- validatePost Guardrail Tests ---
+
 test('validatePost rejects post when COD is not mentioned in caption or content', () => {
   const postWithoutCod = {
+    pricing: 'Rs. 599',
     captionIg: 'Order now Rs. 599 for glowing skin! Click bio link.',
     codAvailable: true,
     destinations: {
@@ -143,8 +168,9 @@ test('validatePost rejects post when COD is not mentioned in caption or content'
   assert.equal(result.error, 'Post must explicitly mention Cash on Delivery (COD).');
 });
 
-test('validatePost rejects post when codAvailable is explicitly false', () => {
-  const postCodDisabled = {
+test('validatePost rejects post when codAvailable is explicitly false or missing', () => {
+  const postCodFalse = {
+    pricing: 'Rs. 599',
     captionIg: 'Order now Rs. 599. Cash on Delivery available.',
     codAvailable: false,
     destinations: {
@@ -152,9 +178,83 @@ test('validatePost rejects post when codAvailable is explicitly false', () => {
       facebookPage: 'Girlies Glow Facebook Business Page'
     }
   };
-  const result = validatePost(postCodDisabled);
-  assert.equal(result.isValid, false);
-  assert.equal(result.error, 'Cash on Delivery (COD) must be enabled.');
+  const resultFalse = validatePost(postCodFalse);
+  assert.equal(resultFalse.isValid, false);
+  assert.equal(resultFalse.error, 'Cash on Delivery must be explicitly available for this post.');
+
+  const postCodUndefined = {
+    pricing: 'Rs. 599',
+    captionIg: 'Order now Rs. 599. Cash on Delivery available.',
+    destinations: {
+      instagram: '@girli_esglow',
+      facebookPage: 'Girlies Glow Facebook Business Page'
+    }
+  };
+  const resultUndefined = validatePost(postCodUndefined);
+  assert.equal(resultUndefined.isValid, false);
+  assert.equal(resultUndefined.error, 'Cash on Delivery must be explicitly available for this post.');
+});
+
+test('validatePost rejects post missing or invalid price Rs. 599', () => {
+  const postNoPrice = {
+    captionIg: 'Order now with Cash on Delivery available.',
+    codAvailable: true,
+    destinations: {
+      instagram: '@girli_esglow',
+      facebookPage: 'Girlies Glow Facebook Business Page'
+    }
+  };
+  const resultNoPrice = validatePost(postNoPrice);
+  assert.equal(resultNoPrice.isValid, false);
+  assert.equal(resultNoPrice.error, 'Post pricing must specify Rs. 599.');
+
+  const postWrongPrice = {
+    pricing: 'Rs. 999',
+    captionIg: 'Order now Rs. 999. Cash on Delivery available.',
+    codAvailable: true,
+    destinations: {
+      instagram: '@girli_esglow',
+      facebookPage: 'Girlies Glow Facebook Business Page'
+    }
+  };
+  const resultWrongPrice = validatePost(postWrongPrice);
+  assert.equal(resultWrongPrice.isValid, false);
+  assert.equal(resultWrongPrice.error, 'Post pricing must specify Rs. 599.');
+});
+
+test('validatePost requires both Facebook and Instagram destinations on full post', () => {
+  const postMissingFb = {
+    pricing: 'Rs. 599',
+    captionIg: 'Order now Rs. 599. Cash on Delivery available.',
+    codAvailable: true,
+    destinations: {
+      instagram: '@girli_esglow'
+    }
+  };
+  const resultMissingFb = validatePost(postMissingFb);
+  assert.equal(resultMissingFb.isValid, false);
+  assert.equal(resultMissingFb.error, 'Facebook destination is personal profile. Select Girlies Glow Facebook Page.');
+
+  const postMissingIg = {
+    pricing: 'Rs. 599',
+    captionIg: 'Order now Rs. 599. Cash on Delivery available.',
+    codAvailable: true,
+    destinations: {
+      facebookPage: 'Girlies Glow Facebook Business Page'
+    }
+  };
+  const resultMissingIg = validatePost(postMissingIg);
+  assert.equal(resultMissingIg.isValid, false);
+  assert.equal(resultMissingIg.error, 'Instagram destination must match @girli_esglow or URL https://www.instagram.com/girli_esglow/.');
+
+  const postNoDestinations = {
+    pricing: 'Rs. 599',
+    captionIg: 'Order now Rs. 599. Cash on Delivery available.',
+    codAvailable: true
+  };
+  const resultNoDestinations = validatePost(postNoDestinations);
+  assert.equal(resultNoDestinations.isValid, false);
+  assert.equal(resultNoDestinations.error, 'Facebook destination is personal profile. Select Girlies Glow Facebook Page.');
 });
 
 test('validatePost passes for all 10 registered posts in data/posts.json', () => {

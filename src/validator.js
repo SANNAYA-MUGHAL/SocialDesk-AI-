@@ -4,7 +4,7 @@
  * Enforces zero personal profile publishing and destination safety for:
  * - Facebook: Girlies Glow Facebook Business Page (ID: 61592791861631)
  * - Instagram: @girli_esglow
- * Also validates mandatory Cash on Delivery (COD) terms on conversion posts.
+ * Also validates mandatory pricing (Rs. 599) and Cash on Delivery (COD) terms.
  */
 
 export const OFFICIAL_FACEBOOK_PAGE_NAME = 'Girlies Glow Facebook Business Page';
@@ -18,12 +18,13 @@ export const ERROR_MESSAGES = {
   FACEBOOK_PERSONAL: 'Facebook destination is personal profile. Select Girlies Glow Facebook Page.',
   INSTAGRAM_INVALID: 'Instagram destination must match @girli_esglow or URL https://www.instagram.com/girli_esglow/.',
   COD_REQUIRED: 'Post must explicitly mention Cash on Delivery (COD).',
-  COD_NOT_AVAILABLE: 'Cash on Delivery (COD) must be enabled.',
+  COD_NOT_AVAILABLE: 'Cash on Delivery must be explicitly available for this post.',
+  PRICE_INVALID: 'Post pricing must specify Rs. 599.',
 };
 
 /**
  * Validates whether a Facebook destination refers to the verified Girlies Glow Business Page.
- * Strictly blocks personal profiles (e.g., Sannaya Mughal) and any non-business page destinations.
+ * Strictly blocks personal profiles (e.g., Sannaya Mughal), unofficial groups, and non-business destinations.
  * 
  * @param {string} fb - Facebook destination string (name, ID, or URL)
  * @returns {boolean}
@@ -33,8 +34,13 @@ export function isValidFacebookDestination(fb) {
   const trimmed = fb.trim();
   const lower = trimmed.toLowerCase();
 
-  // Strict check: personal profile indicators
-  if (lower.includes('personal') || lower.includes('sannaya')) {
+  // Strict check: personal profile indicators, groups, or unofficial pages
+  if (
+    lower.includes('personal') ||
+    lower.includes('sannaya') ||
+    lower.includes('group') ||
+    lower.includes('unofficial')
+  ) {
     return false;
   }
 
@@ -46,8 +52,11 @@ export function isValidFacebookDestination(fb) {
   // Normalized URL or ID match
   if (lower.includes(OFFICIAL_FACEBOOK_PAGE_ID)) return true;
 
-  // Verified business page name variations
-  if (lower.includes('girlies glow') && (lower.includes('business') || lower.includes('page') || lower.includes('facebook'))) {
+  // Verified business page name variations (strictly requiring business page, not groups)
+  if (
+    lower.includes('girlies glow') &&
+    (lower.includes('business page') || lower.includes('facebook business page'))
+  ) {
     return true;
   }
 
@@ -115,9 +124,10 @@ export function validateDestinations(post) {
 
 /**
  * Validates a complete post payload against destination safety and business rules:
- * - Verified Facebook & Instagram destinations
+ * - Verified Facebook Business Page & Instagram destinations (both required)
+ * - Strict Cash on Delivery availability (codAvailable === true)
+ * - Post pricing must specify Rs. 599
  * - Explicit Cash on Delivery (COD) mention in content
- * - codAvailable flag enabled
  * 
  * @param {Object} post
  * @returns {{ isValid: boolean, error?: string }}
@@ -130,21 +140,51 @@ export function validatePost(post) {
     };
   }
 
-  // 1. Destination Safety Guardrails
-  const destResult = validateDestinations(post);
-  if (!destResult.isValid) {
-    return destResult;
+  // 1. Mandatory Destination Safety Guardrails for Full Posts
+  if (!post.destinations || typeof post.destinations !== 'object') {
+    return {
+      isValid: false,
+      error: ERROR_MESSAGES.FACEBOOK_PERSONAL
+    };
   }
 
-  // 2. COD Availability Flag
-  if (post.codAvailable === false) {
+  if (!post.destinations.facebookPage || !isValidFacebookDestination(post.destinations.facebookPage)) {
+    return {
+      isValid: false,
+      error: ERROR_MESSAGES.FACEBOOK_PERSONAL
+    };
+  }
+
+  if (!post.destinations.instagram || !isValidInstagramDestination(post.destinations.instagram)) {
+    return {
+      isValid: false,
+      error: ERROR_MESSAGES.INSTAGRAM_INVALID
+    };
+  }
+
+  // 2. Strict COD Availability Flag (must be explicitly true)
+  if (post.codAvailable !== true) {
     return {
       isValid: false,
       error: ERROR_MESSAGES.COD_NOT_AVAILABLE
     };
   }
 
-  // 3. Cash on Delivery (COD) Mention in Content
+  // 3. Price Rs. 599 Validation
+  const pricing = post.pricing !== undefined 
+    ? post.pricing 
+    : (/(?:rs\.?\s*599|599)/i.test(post.captionIg || '') 
+        ? 'Rs. 599' 
+        : (/(?:rs\.?\s*599|599)/i.test(post.captionFb || '') ? 'Rs. 599' : null));
+
+  if (!pricing || !String(pricing).includes('599')) {
+    return {
+      isValid: false,
+      error: ERROR_MESSAGES.PRICE_INVALID
+    };
+  }
+
+  // 4. Cash on Delivery (COD) Explicit Mention in Content
   const textContent = [
     post.captionIg,
     post.captionFb,
@@ -155,13 +195,11 @@ export function validatePost(post) {
 
   const hasCodMention = textContent.includes('cash on delivery') || /\bcod\b/i.test(textContent);
 
-  if (post.captionIg || post.captionFb || post.caption || post.codAvailable) {
-    if (!hasCodMention) {
-      return {
-        isValid: false,
-        error: ERROR_MESSAGES.COD_REQUIRED
-      };
-    }
+  if (!hasCodMention) {
+    return {
+      isValid: false,
+      error: ERROR_MESSAGES.COD_REQUIRED
+    };
   }
 
   return { isValid: true };
