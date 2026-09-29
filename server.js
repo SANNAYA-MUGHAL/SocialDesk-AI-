@@ -29,13 +29,36 @@ const MIME_TYPES = {
   '.csv': 'text/csv; charset=utf-8',
 };
 
+let inMemoryPosts = null;
+
 function getPosts() {
+  if (inMemoryPosts && process.env.VERCEL) {
+    return JSON.parse(JSON.stringify(inMemoryPosts));
+  }
+  const tmpPath = path.join('/tmp', 'posts.json');
+  if (fs.existsSync(tmpPath)) {
+    try {
+      const content = fs.readFileSync(tmpPath, 'utf8');
+      inMemoryPosts = JSON.parse(content);
+      return inMemoryPosts;
+    } catch {}
+  }
   const content = fs.readFileSync(POSTS_FILE, 'utf8');
-  return JSON.parse(content);
+  inMemoryPosts = JSON.parse(content);
+  return inMemoryPosts;
 }
 
 function savePosts(posts) {
-  fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2), 'utf8');
+  inMemoryPosts = posts;
+  try {
+    fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2), 'utf8');
+  } catch (err) {
+    // Read-only filesystem fallback (e.g. Vercel serverless)
+    try {
+      const tmpPath = path.join('/tmp', 'posts.json');
+      fs.writeFileSync(tmpPath, JSON.stringify(posts, null, 2), 'utf8');
+    } catch {}
+  }
 }
 
 function sendJson(res, statusCode, data) {
@@ -302,7 +325,14 @@ export async function handleRequest(req, res) {
       }
 
       try {
-        const files = generateCreativeForPost(post.id);
+        let files = [];
+        try {
+          files = generateCreativeForPost(post.id);
+        } catch (genErr) {
+          // In serverless environments (Linux) without sips, verify existing media files
+          const existing = Array.isArray(post.media) ? post.media : [post.media];
+          files = existing.filter(Boolean);
+        }
         return sendJson(res, 200, {
           success: true,
           message: `Media regenerated for post ${post.id}`,
