@@ -3,9 +3,56 @@ let posts = [];
 let currentView = 'grid';
 const platformTabState = {}; // postId -> 'ig' | 'fb'
 const carouselIndexState = {}; // postId -> current slide index
+const mediaCacheBusters = {}; // postId -> timestamp for cache busting
+
+// Helper to look up a post by string ID, numeric ID, or postNumber
+function findPost(postId) {
+  if (postId === undefined || postId === null) return undefined;
+  return posts.find(p => String(p.id) === String(postId) || String(p.postNumber) === String(postId));
+}
+
+function findPostIndex(postId) {
+  if (postId === undefined || postId === null) return -1;
+  return posts.findIndex(p => String(p.id) === String(postId) || String(p.postNumber) === String(postId));
+}
+
+function setPosts(data) {
+  posts = data;
+}
+
+if (typeof window !== 'undefined') {
+  window.findPost = findPost;
+  window.findPostIndex = findPostIndex;
+  window.setPosts = setPosts;
+  window.carouselIndexState = carouselIndexState;
+  window.platformTabState = platformTabState;
+  window.mediaCacheBusters = mediaCacheBusters;
+  window.openEditModal = openEditModal;
+  window.closeEditModal = closeEditModal;
+  window.savePostEdit = savePostEdit;
+  window.toggleApprove = toggleApprove;
+  window.schedulePost = schedulePost;
+  window.regenerateMedia = regenerateMedia;
+  window.setPostTab = setPostTab;
+  window.changeSlide = changeSlide;
+  window.handleApproveAll = handleApproveAll;
+  window.handleScheduleAll = handleScheduleAll;
+  window.exportData = exportData;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   loadPosts();
+
+  const editModal = document.getElementById('edit-modal');
+  if (editModal) {
+    editModal.addEventListener('click', (e) => {
+      if (e.target === editModal) closeEditModal();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeEditModal();
+  });
 });
 
 async function loadPosts() {
@@ -21,25 +68,39 @@ async function loadPosts() {
 }
 
 function updateStats() {
-  document.getElementById('stat-total').textContent = posts.length;
+  const totalEl = document.getElementById('stat-total');
+  if (totalEl) totalEl.textContent = posts.length;
+
   const drafts = posts.filter(p => p.status === 'Draft').length;
   const approved = posts.filter(p => p.status === 'Approved').length;
   const scheduled = posts.filter(p => p.status === 'Scheduled').length;
 
-  document.getElementById('stat-drafts').textContent = `${drafts} Drafts`;
-  document.getElementById('stat-approved').textContent = `${approved} Approved`;
-  document.getElementById('stat-scheduled').textContent = `${scheduled} Scheduled`;
+  const draftsEl = document.getElementById('stat-drafts');
+  const approvedEl = document.getElementById('stat-approved');
+  const scheduledEl = document.getElementById('stat-scheduled');
+
+  if (draftsEl) draftsEl.textContent = `${drafts} Drafts`;
+  if (approvedEl) approvedEl.textContent = `${approved} Approved`;
+  if (scheduledEl) scheduledEl.textContent = `${scheduled} Scheduled`;
 }
 
 function switchView(view) {
   currentView = view;
-  document.getElementById('view-grid-btn').classList.toggle('active', view === 'grid');
-  document.getElementById('view-table-btn').classList.toggle('active', view === 'table');
-  document.getElementById('view-calendar-btn').classList.toggle('active', view === 'calendar');
+  const gridBtn = document.getElementById('view-grid-btn');
+  const tableBtn = document.getElementById('view-table-btn');
+  const calBtn = document.getElementById('view-calendar-btn');
 
-  document.getElementById('posts-grid').style.display = view === 'grid' ? 'grid' : 'none';
-  document.getElementById('table-container').style.display = view === 'table' ? 'block' : 'none';
-  document.getElementById('calendar-container').style.display = view === 'calendar' ? 'block' : 'none';
+  if (gridBtn) gridBtn.classList.toggle('active', view === 'grid');
+  if (tableBtn) tableBtn.classList.toggle('active', view === 'table');
+  if (calBtn) calBtn.classList.toggle('active', view === 'calendar');
+
+  const gridContainer = document.getElementById('posts-grid');
+  const tableContainer = document.getElementById('table-container');
+  const calContainer = document.getElementById('calendar-container');
+
+  if (gridContainer) gridContainer.style.display = view === 'grid' ? 'grid' : 'none';
+  if (tableContainer) tableContainer.style.display = view === 'table' ? 'block' : 'none';
+  if (calContainer) calContainer.style.display = view === 'calendar' ? 'block' : 'none';
 
   renderCurrentView();
 }
@@ -57,6 +118,7 @@ function renderCurrentView() {
 // Render Grid View
 function renderGrid() {
   const container = document.getElementById('posts-grid');
+  if (!container) return;
   container.innerHTML = '';
 
   posts.forEach(post => {
@@ -119,10 +181,10 @@ function renderGrid() {
         </div>
 
         <div class="platform-tabs">
-          <button class="tab-btn ${activeTab === 'ig' ? 'active' : ''}" onclick="setPostTab(${post.id}, 'ig')">
+          <button type="button" class="tab-btn ${activeTab === 'ig' ? 'active' : ''}" onclick="setPostTab('${post.id}', 'ig')">
             Instagram Preview
           </button>
-          <button class="tab-btn ${activeTab === 'fb' ? 'active' : ''}" onclick="setPostTab(${post.id}, 'fb')">
+          <button type="button" class="tab-btn ${activeTab === 'fb' ? 'active' : ''}" onclick="setPostTab('${post.id}', 'fb')">
             Facebook Page Preview
           </button>
         </div>
@@ -137,17 +199,17 @@ function renderGrid() {
       </div>
 
       <div class="post-card-actions">
-        <button class="card-action-btn" onclick="openEditModal(${post.id})" title="Edit caption, dates, or destinations">
+        <button type="button" class="card-action-btn" onclick="openEditModal('${post.id}')" title="Edit caption, dates, or destinations">
           <span>✏️</span> EDIT
         </button>
-        <button class="card-action-btn btn-approve-toggle" onclick="toggleApprove(${post.id})" title="Toggle post approval">
-          <span>${post.status === 'Approved' || post.status === 'Scheduled' ? '✓' : '○'}</span>
+        <button type="button" class="card-action-btn btn-approve-toggle" onclick="toggleApprove('${post.id}')" title="Toggle post approval">
+          <span>${post.status === 'Approved' ? '✓' : post.status === 'Scheduled' ? '✓' : '○'}</span>
           ${post.status === 'Approved' || post.status === 'Scheduled' ? 'APPROVED' : 'APPROVE'}
         </button>
-        <button class="card-action-btn" onclick="regenerateMedia(${post.id})" title="Re-render creative graphics">
+        <button type="button" class="card-action-btn" onclick="regenerateMedia('${post.id}')" title="Re-render creative graphics">
           <span>🎨</span> REGEN
         </button>
-        <button class="card-action-btn btn-schedule-action" onclick="schedulePost(${post.id})" title="Validate safety & schedule">
+        <button type="button" class="card-action-btn btn-schedule-action" onclick="schedulePost('${post.id}')" title="Validate safety & schedule">
           <span>🚀</span> ${post.status === 'Scheduled' ? 'SCHEDULED' : 'SCHEDULE'}
         </button>
       </div>
@@ -158,16 +220,18 @@ function renderGrid() {
 }
 
 function renderMediaPreview(post, currentSlideIndex) {
+  const cacheBuster = mediaCacheBusters[post.id] ? `?t=${mediaCacheBusters[post.id]}` : '';
+
   if (post.format === 'carousel' && Array.isArray(post.media)) {
     const totalSlides = post.media.length;
     const safeIndex = Math.min(Math.max(0, currentSlideIndex), totalSlides - 1);
-    const mediaPath = post.media[safeIndex];
+    const mediaPath = post.media[safeIndex] + cacheBuster;
 
     return `
       <img src="${escapeHtml(mediaPath)}" alt="${escapeHtml(post.title)} Slide ${safeIndex + 1}" class="media-img" loading="lazy">
       <div class="carousel-overlay-controls">
-        <button type="button" class="carousel-arrow" onclick="changeSlide(${post.id}, -1)">&larr;</button>
-        <button type="button" class="carousel-arrow" onclick="changeSlide(${post.id}, 1)">&rarr;</button>
+        <button type="button" class="carousel-arrow" onclick="changeSlide('${post.id}', -1)">&larr;</button>
+        <button type="button" class="carousel-arrow" onclick="changeSlide('${post.id}', 1)">&rarr;</button>
       </div>
       <div class="carousel-badge">Slide ${safeIndex + 1} of ${totalSlides}</div>
     `;
@@ -176,7 +240,7 @@ function renderMediaPreview(post, currentSlideIndex) {
   if (post.format === 'reel') {
     const mediaFile = Array.isArray(post.media) ? post.media[0] : post.media;
     // Reel preview with animated video or GIF demonstration
-    const gifSource = post.sourceAssets?.find(a => a.endsWith('.gif')) || mediaFile;
+    const gifSource = (post.sourceAssets?.find(a => a.endsWith('.gif')) || mediaFile) + cacheBuster;
     return `
       <div style="position: relative; width: 100%; height: 100%;">
         <img src="/${escapeHtml(gifSource)}" alt="Reel Demo" class="media-img" style="object-fit: cover;">
@@ -188,33 +252,37 @@ function renderMediaPreview(post, currentSlideIndex) {
   }
 
   // Static post
-  const mediaFile = Array.isArray(post.media) ? post.media[0] : post.media;
+  const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
+  const mediaFile = rawMedia + cacheBuster;
   return `
     <img src="${escapeHtml(mediaFile)}" alt="${escapeHtml(post.title)}" class="media-img" loading="lazy">
   `;
 }
 
 function changeSlide(postId, delta) {
-  const post = posts.find(p => p.id === postId);
+  const post = findPost(postId);
   if (!post || !Array.isArray(post.media)) return;
 
   const total = post.media.length;
-  let next = (carouselIndexState[postId] || 0) + delta;
+  let next = (carouselIndexState[post.id] || 0) + delta;
   if (next < 0) next = total - 1;
   if (next >= total) next = 0;
 
-  carouselIndexState[postId] = next;
+  carouselIndexState[post.id] = next;
   renderGrid();
 }
 
 function setPostTab(postId, tab) {
-  platformTabState[postId] = tab;
+  const post = findPost(postId);
+  if (!post) return;
+  platformTabState[post.id] = tab;
   renderGrid();
 }
 
 // Render Table View
 function renderTable() {
   const tbody = document.getElementById('table-body');
+  if (!tbody) return;
   tbody.innerHTML = '';
 
   posts.forEach(post => {
@@ -242,8 +310,8 @@ function renderTable() {
       <td><span class="pill-status ${statusClass}">${post.status || 'Draft'}</span></td>
       <td>
         <div style="display: flex; gap: 4px;">
-          <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openEditModal(${post.id})">Edit</button>
-          <button class="btn btn-primary" style="padding: 4px 8px; font-size: 11px;" onclick="schedulePost(${post.id})">Schedule</button>
+          <button type="button" class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openEditModal('${post.id}')">Edit</button>
+          <button type="button" class="btn btn-primary" style="padding: 4px 8px; font-size: 11px;" onclick="schedulePost('${post.id}')">Schedule</button>
         </div>
       </td>
     `;
@@ -254,6 +322,7 @@ function renderTable() {
 // Render Calendar Timeline View
 function renderCalendar() {
   const container = document.getElementById('timeline-grid');
+  if (!container) return;
   container.innerHTML = '';
 
   posts.forEach(post => {
@@ -280,8 +349,8 @@ function renderCalendar() {
         ${escapeHtml(post.captionIg.substring(0, 110))}...
       </p>
       <div style="display: flex; gap: 6px;">
-        <button class="btn btn-secondary" style="flex: 1; padding: 6px 8px; font-size: 11px;" onclick="openEditModal(${post.id})">Edit</button>
-        <button class="btn btn-success" style="flex: 1; padding: 6px 8px; font-size: 11px;" onclick="schedulePost(${post.id})">Schedule</button>
+        <button type="button" class="btn btn-secondary" style="flex: 1; padding: 6px 8px; font-size: 11px;" onclick="openEditModal('${post.id}')">Edit</button>
+        <button type="button" class="btn btn-success" style="flex: 1; padding: 6px 8px; font-size: 11px;" onclick="schedulePost('${post.id}')">Schedule</button>
       </div>
     `;
     container.appendChild(card);
@@ -290,8 +359,12 @@ function renderCalendar() {
 
 // Modal Handlers
 function openEditModal(postId) {
-  const post = posts.find(p => p.id === postId);
-  if (!post) return;
+  const post = findPost(postId);
+  if (!post) {
+    console.error('Post not found for id:', postId);
+    showToast('Post not found', 'error');
+    return;
+  }
 
   document.getElementById('edit-post-id').value = post.id;
   document.getElementById('modal-title').textContent = `Edit Post ${post.postNumber || post.id} — ${post.title}`;
@@ -299,7 +372,9 @@ function openEditModal(postId) {
   document.getElementById('edit-angle').value = post.angle || '';
 
   const fbSelect = document.getElementById('edit-fb-dest');
-  fbSelect.value = post.destinations?.facebookPage || 'Girlies Glow Facebook Business Page';
+  if (fbSelect) {
+    fbSelect.value = post.destinations?.facebookPage || 'Girlies Glow Facebook Business Page';
+  }
 
   document.getElementById('edit-ig-dest').value = post.destinations?.instagram || '@girli_esglow';
   document.getElementById('edit-date').value = post.schedule?.date || '';
@@ -308,17 +383,26 @@ function openEditModal(postId) {
   document.getElementById('edit-caption-fb').value = post.captionFb || '';
   document.getElementById('edit-hashtags').value = Array.isArray(post.hashtags) ? post.hashtags.join(' ') : (post.hashtags || '');
 
-  document.getElementById('edit-modal').style.display = 'flex';
+  const modal = document.getElementById('edit-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
 }
 
 function closeEditModal() {
-  document.getElementById('edit-modal').style.display = 'none';
+  const modal = document.getElementById('edit-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
 }
 
 async function savePostEdit() {
   const id = document.getElementById('edit-post-id').value;
-  const post = posts.find(p => String(p.id) === String(id));
-  if (!post) return;
+  const post = findPost(id);
+  if (!post) {
+    showToast('Post not found', 'error');
+    return;
+  }
 
   const updatedPayload = {
     title: document.getElementById('edit-title').value,
@@ -339,23 +423,23 @@ async function savePostEdit() {
   };
 
   try {
-    const res = await fetch(`/api/posts/${id}`, {
+    const res = await fetch(`/api/posts/${post.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedPayload)
     });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to update post');
     }
     const saved = await res.json();
-    const idx = posts.findIndex(p => String(p.id) === String(id));
+    const idx = findPostIndex(post.id);
     if (idx !== -1) posts[idx] = saved;
 
     closeEditModal();
     updateStats();
     renderCurrentView();
-    showToast(`Post ${id} updated successfully`, 'success');
+    showToast(`Post ${post.id} updated successfully`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -363,27 +447,57 @@ async function savePostEdit() {
 
 // Action Handlers
 async function toggleApprove(postId) {
+  const post = findPost(postId);
+  if (!post) {
+    console.error('Post not found for id:', postId);
+    showToast('Post not found', 'error');
+    return;
+  }
+
+  const willApprove = post.status !== 'Approved' && post.status !== 'Scheduled';
+  const newStatus = willApprove ? 'Approved' : 'Draft';
+
   try {
-    const res = await fetch(`/api/posts/${postId}/approve`, { method: 'POST' });
-    if (!res.ok) throw new Error('Failed to approve post');
+    let res;
+    if (willApprove) {
+      res = await fetch(`/api/posts/${post.id}/approve`, { method: 'POST' });
+    } else {
+      res = await fetch(`/api/posts/${post.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Draft' })
+      });
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update post status');
+    }
+
     const updated = await res.json();
-    const idx = posts.findIndex(p => p.id === postId);
-    if (idx !== -1) posts[idx] = updated;
+    const idx = findPostIndex(post.id);
+    if (idx !== -1) {
+      posts[idx] = updated;
+    }
 
     updateStats();
     renderCurrentView();
-    showToast(`Post ${postId} status: ${updated.status}`, 'success');
+    showToast(`Post ${post.id} status: ${updated.status}`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
 async function schedulePost(postId) {
-  const post = posts.find(p => p.id === postId);
-  if (!post) return;
+  const post = findPost(postId);
+  if (!post) {
+    console.error('Post not found for id:', postId);
+    showToast('Post not found', 'error');
+    return;
+  }
 
   try {
-    const res = await fetch(`/api/posts/${postId}/schedule`, {
+    const res = await fetch(`/api/posts/${post.id}/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ facebookPage: post.destinations?.facebookPage })
@@ -398,27 +512,37 @@ async function schedulePost(postId) {
       return;
     }
 
-    const idx = posts.findIndex(p => p.id === postId);
+    const idx = findPostIndex(post.id);
     if (idx !== -1) posts[idx] = data;
 
     dismissGuardrailAlert();
     updateStats();
     renderCurrentView();
-    showToast(`Post ${postId} scheduled to Girlies Glow Facebook Page & Instagram!`, 'success');
+    showToast(`Post ${post.id} scheduled to Girlies Glow Facebook Page & Instagram!`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
 async function regenerateMedia(postId) {
-  showToast(`Regenerating creative for Post ${postId}...`, 'info');
+  const post = findPost(postId);
+  if (!post) {
+    console.error('Post not found for id:', postId);
+    showToast('Post not found', 'error');
+    return;
+  }
+
+  showToast(`Regenerating creative for Post ${post.id}...`, 'info');
   try {
-    const res = await fetch(`/api/posts/${postId}/regenerate-media`, { method: 'POST' });
+    const res = await fetch(`/api/posts/${post.id}/regenerate-media`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to regenerate creative');
 
-    showToast(`Creative for Post ${postId} regenerated!`, 'success');
-    renderGrid();
+    // Add cache buster so browser immediately displays newly generated asset
+    mediaCacheBusters[post.id] = Date.now();
+
+    showToast(`Creative for Post ${post.id} regenerated!`, 'success');
+    renderCurrentView();
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -466,27 +590,35 @@ function exportData(format) {
 // Guardrail Alert UI
 function showGuardrailAlert(msg) {
   const alertEl = document.getElementById('guardrail-alert');
-  document.getElementById('guardrail-error-msg').textContent = msg;
-  alertEl.style.display = 'block';
+  const msgEl = document.getElementById('guardrail-error-msg');
+  if (msgEl) msgEl.textContent = msg;
+  if (alertEl) alertEl.style.display = 'block';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function dismissGuardrailAlert() {
-  document.getElementById('guardrail-alert').style.display = 'none';
+  const alertEl = document.getElementById('guardrail-alert');
+  if (alertEl) alertEl.style.display = 'none';
 }
 
 // Toast System
 function showToast(msg, type = 'info') {
   const container = document.getElementById('toast-container');
+  if (!container) return;
+
   const toast = document.createElement('div');
   toast.className = `toast ${type === 'error' ? 'toast-error' : type === 'success' ? 'toast-success' : ''}`;
   toast.innerHTML = `<span>${type === 'error' ? '⚠️' : type === 'success' ? '✓' : 'ℹ️'}</span> <span>${escapeHtml(msg)}</span>`;
   container.appendChild(toast);
 
   setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(10px)';
-    setTimeout(() => toast.remove(), 300);
+    if (toast && toast.style) {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(10px)';
+    }
+    setTimeout(() => {
+      if (toast && typeof toast.remove === 'function') toast.remove();
+    }, 300);
   }, 4000);
 }
 
