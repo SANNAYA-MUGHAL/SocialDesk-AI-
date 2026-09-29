@@ -1,6 +1,8 @@
 // Girlies Glow Content Scheduler Frontend Client
 let posts = [];
 let currentView = 'grid';
+let filterFormat = 'all';
+let filterStatus = 'all';
 const platformTabState = {}; // postId -> 'ig' | 'fb'
 const carouselIndexState = {}; // postId -> current slide index
 const mediaCacheBusters = {}; // postId -> timestamp for cache busting
@@ -18,6 +20,14 @@ function findPostIndex(postId) {
 
 function setPosts(data) {
   posts = data;
+}
+
+function getFilteredPosts() {
+  return posts.filter(post => {
+    if (filterFormat !== 'all' && post.format !== filterFormat) return false;
+    if (filterStatus !== 'all' && post.status !== filterStatus) return false;
+    return true;
+  });
 }
 
 if (typeof window !== 'undefined') {
@@ -38,6 +48,14 @@ if (typeof window !== 'undefined') {
   window.handleApproveAll = handleApproveAll;
   window.handleScheduleAll = handleScheduleAll;
   window.exportData = exportData;
+  window.setFormatFilter = setFormatFilter;
+  window.setStatusFilter = setStatusFilter;
+  window.copyCaption = copyCaption;
+  window.copyHashtags = copyHashtags;
+  window.openMobilePreview = openMobilePreview;
+  window.closeMobilePreview = closeMobilePreview;
+  window.updateCharCounters = updateCharCounters;
+  window.getFilteredPosts = getFilteredPosts;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -50,8 +68,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const igModal = document.getElementById('ig-preview-modal');
+  if (igModal) {
+    igModal.addEventListener('click', (e) => {
+      if (e.target === igModal) closeMobilePreview();
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeEditModal();
+    if (e.key === 'Escape') {
+      closeEditModal();
+      closeMobilePreview();
+    }
   });
 });
 
@@ -85,6 +113,12 @@ function updateStats() {
   if (draftsEl) draftsEl.textContent = `${drafts} Drafts`;
   if (approvedEl) approvedEl.textContent = `${approved} Approved`;
   if (scheduledEl) scheduledEl.textContent = `${scheduled} Scheduled`;
+
+  const showingEl = document.getElementById('showing-posts-count');
+  if (showingEl) {
+    const filtered = getFilteredPosts();
+    showingEl.textContent = `Showing ${filtered.length} of ${posts.length} posts`;
+  }
 }
 
 function switchView(view) {
@@ -124,7 +158,18 @@ function renderGrid() {
   if (!container) return;
   container.innerHTML = '';
 
-  posts.forEach(post => {
+  const filteredPosts = getFilteredPosts();
+  if (filteredPosts.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 48px; text-align: center; background: white; border-radius: 16px; border: 1px dashed var(--color-border);">
+        <p style="font-size: 16px; font-weight: 700; color: var(--color-purple-plum); margin-bottom: 8px;">No posts match your selected filter criteria.</p>
+        <p style="font-size: 13px; color: var(--color-text-muted);">Try selecting "All Formats" or "All Status".</p>
+      </div>
+    `;
+    return;
+  }
+
+  filteredPosts.forEach(post => {
     const card = document.createElement('article');
     card.className = 'post-card';
     card.id = `post-card-${post.id}`;
@@ -166,6 +211,20 @@ function renderGrid() {
 
       <div class="media-preview-container ${post.format === 'reel' ? 'media-aspect-9-16' : 'media-aspect-4-5'}">
         ${mediaHtml}
+      </div>
+
+      <div class="card-quick-tools">
+        <button type="button" class="quick-tool-btn btn-ig-preview" onclick="openMobilePreview('${post.id}')" title="Preview post in phone mockup">
+          <span>📱</span> IG Phone Preview
+        </button>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="quick-tool-btn" onclick="copyCaption('${post.id}')" title="Copy current preview caption">
+            <span>📋</span> Copy Caption
+          </button>
+          <button type="button" class="quick-tool-btn" onclick="copyHashtags('${post.id}')" title="Copy hashtags">
+            <span>🏷️</span> Copy Tags
+          </button>
+        </div>
       </div>
 
       <div class="post-card-body">
@@ -288,7 +347,19 @@ function renderTable() {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  posts.forEach(post => {
+  const filteredPosts = getFilteredPosts();
+  if (filteredPosts.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="11" style="text-align: center; padding: 32px; color: var(--color-text-muted);">
+          No posts match your selected filter criteria.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  filteredPosts.forEach(post => {
     const tr = document.createElement('tr');
     const statusClass = `status-${(post.status || 'draft').toLowerCase()}`;
     const mediaText = Array.isArray(post.media) ? `${post.media.length} files` : post.media;
@@ -328,7 +399,17 @@ function renderCalendar() {
   if (!container) return;
   container.innerHTML = '';
 
-  posts.forEach(post => {
+  const filteredPosts = getFilteredPosts();
+  if (filteredPosts.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 48px; text-align: center; background: white; border-radius: 16px; border: 1px dashed var(--color-border);">
+        <p style="font-size: 16px; font-weight: 700; color: var(--color-purple-plum); margin-bottom: 8px;">No scheduled dates match your filters.</p>
+      </div>
+    `;
+    return;
+  }
+
+  filteredPosts.forEach(post => {
     const card = document.createElement('div');
     card.className = 'timeline-day-card';
 
@@ -385,6 +466,8 @@ function openEditModal(postId) {
   document.getElementById('edit-caption-ig').value = post.captionIg || '';
   document.getElementById('edit-caption-fb').value = post.captionFb || '';
   document.getElementById('edit-hashtags').value = Array.isArray(post.hashtags) ? post.hashtags.join(' ') : (post.hashtags || '');
+
+  updateCharCounters();
 
   const modal = document.getElementById('edit-modal');
   if (modal) {
@@ -634,3 +717,133 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+// Filter Actions (UI/UX Pro Max)
+function setFormatFilter(fmt) {
+  filterFormat = fmt;
+  const chips = document.querySelectorAll('#format-filter-chips .filter-chip');
+  chips.forEach(chip => {
+    chip.classList.toggle('active', chip.getAttribute('data-format') === fmt);
+  });
+  updateStats();
+  renderCurrentView();
+}
+
+function setStatusFilter(status) {
+  filterStatus = status;
+  const chips = document.querySelectorAll('#status-filter-chips .filter-chip');
+  chips.forEach(chip => {
+    chip.classList.toggle('active', chip.getAttribute('data-status') === status);
+  });
+  updateStats();
+  renderCurrentView();
+}
+
+// Quick Copy Actions (Social Media Skills)
+async function copyCaption(postId) {
+  const post = findPost(postId);
+  if (!post) return;
+  const activeTab = platformTabState[post.id] || 'ig';
+  const text = activeTab === 'ig' ? post.captionIg : post.captionFb;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    showToast(`Copied ${activeTab === 'ig' ? 'Instagram' : 'Facebook'} caption to clipboard! 📋`, 'success');
+  } catch (err) {
+    showToast('Failed to copy caption: ' + err.message, 'error');
+  }
+}
+
+async function copyHashtags(postId) {
+  const post = findPost(postId);
+  if (!post) return;
+  const text = Array.isArray(post.hashtags) ? post.hashtags.join(' ') : (post.hashtags || '');
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    showToast('Copied hashtags to clipboard! 🏷️', 'success');
+  } catch (err) {
+    showToast('Failed to copy hashtags: ' + err.message, 'error');
+  }
+}
+
+// Live Instagram Mobile Feed Preview (Canvas Design & UI/UX Pro Max)
+function openMobilePreview(postId) {
+  const post = findPost(postId);
+  if (!post) {
+    showToast('Post not found', 'error');
+    return;
+  }
+  const modal = document.getElementById('ig-preview-modal');
+  const mediaContainer = document.getElementById('ig-preview-media-container');
+  const captionEl = document.getElementById('ig-preview-caption-text');
+  const tagsEl = document.getElementById('ig-preview-hashtags');
+
+  if (!modal || !mediaContainer) return;
+
+  const cacheBuster = mediaCacheBusters[post.id] ? `?t=${mediaCacheBusters[post.id]}` : '';
+  let mediaHtml = '';
+  if (post.format === 'carousel' && Array.isArray(post.media)) {
+    const curIndex = carouselIndexState[post.id] || 0;
+    const safeIdx = Math.min(Math.max(0, curIndex), post.media.length - 1);
+    mediaHtml = `<img src="${escapeHtml(post.media[safeIdx]) + cacheBuster}" alt="Carousel Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
+  } else if (post.format === 'reel') {
+    const gifSource = (post.sourceAssets?.find(a => a.endsWith('.gif')) || (Array.isArray(post.media) ? post.media[0] : post.media)) + cacheBuster;
+    mediaHtml = `<img src="/${escapeHtml(gifSource)}" alt="Reel Preview" style="max-height: 420px; width: 100%; object-fit: cover;">`;
+  } else {
+    const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
+    mediaHtml = `<img src="${escapeHtml(rawMedia) + cacheBuster}" alt="Static Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
+  }
+
+  mediaContainer.innerHTML = mediaHtml;
+  if (captionEl) captionEl.textContent = ' ' + (post.captionIg || '');
+  if (tagsEl) {
+    tagsEl.textContent = Array.isArray(post.hashtags) ? post.hashtags.join(' ') : (post.hashtags || '');
+  }
+
+  modal.style.display = 'flex';
+}
+
+function closeMobilePreview() {
+  const modal = document.getElementById('ig-preview-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Character Counters in Edit Modal
+function updateCharCounters() {
+  const igEl = document.getElementById('edit-caption-ig');
+  const fbEl = document.getElementById('edit-caption-fb');
+  const tagsEl = document.getElementById('edit-hashtags');
+
+  const igCountEl = document.getElementById('caption-ig-counter');
+  const fbCountEl = document.getElementById('caption-fb-counter');
+  const tagsCountEl = document.getElementById('hashtags-counter');
+
+  if (igEl && igCountEl) {
+    igCountEl.textContent = `${igEl.value.length} chars`;
+  }
+  if (fbEl && fbCountEl) {
+    fbCountEl.textContent = `${fbEl.value.length} chars`;
+  }
+  if (tagsEl && tagsCountEl) {
+    const count = tagsEl.value.split(/\s+/).filter(Boolean).length;
+    tagsCountEl.textContent = `${count} hashtags`;
+  }
+}
+

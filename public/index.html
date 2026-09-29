@@ -89,6 +89,33 @@
     </div>
   </section>
 
+  <!-- Filters & Search Toolbar (UI/UX Pro Max) -->
+  <section class="filters-container">
+    <div class="filters-card">
+      <div class="filters-group">
+        <span class="filters-label">Format:</span>
+        <div class="filter-chips" id="format-filter-chips">
+          <button type="button" class="filter-chip active" data-format="all" onclick="setFormatFilter('all')">All Formats</button>
+          <button type="button" class="filter-chip" data-format="static" onclick="setFormatFilter('static')">🖼️ Static (4:5)</button>
+          <button type="button" class="filter-chip" data-format="carousel" onclick="setFormatFilter('carousel')">📑 Carousel (4:5)</button>
+          <button type="button" class="filter-chip" data-format="reel" onclick="setFormatFilter('reel')">🎬 Reels (9:16)</button>
+        </div>
+      </div>
+      <div class="filters-group">
+        <span class="filters-label">Status:</span>
+        <div class="filter-chips" id="status-filter-chips">
+          <button type="button" class="filter-chip active" data-status="all" onclick="setStatusFilter('all')">All Status</button>
+          <button type="button" class="filter-chip" data-status="Draft" onclick="setStatusFilter('Draft')">Draft</button>
+          <button type="button" class="filter-chip" data-status="Approved" onclick="setStatusFilter('Approved')">Approved</button>
+          <button type="button" class="filter-chip" data-status="Scheduled" onclick="setStatusFilter('Scheduled')">Scheduled</button>
+        </div>
+      </div>
+      <div class="filters-counter">
+        <span id="showing-posts-count" class="showing-badge">Showing 10 of 10 posts</span>
+      </div>
+    </div>
+  </section>
+
   <!-- View 1: Visual Feed Grid -->
   <main id="posts-grid" class="posts-grid">
     <!-- Populated dynamically by app.js -->
@@ -178,24 +205,104 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Instagram Caption (Roman Urdu + English)</label>
-          <textarea id="edit-caption-ig" class="form-control" style="min-height: 120px;"></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <label class="form-label">Instagram Caption (Roman Urdu + English)</label>
+            <span id="caption-ig-counter" class="char-counter">0 chars</span>
+          </div>
+          <textarea id="edit-caption-ig" class="form-control" style="min-height: 120px;" oninput="updateCharCounters()"></textarea>
+          <div class="counter-tip">💡 Best practice: Hook in first 125 chars before the "...more" fold.</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Facebook Page Caption</label>
-          <textarea id="edit-caption-fb" class="form-control" style="min-height: 100px;"></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <label class="form-label">Facebook Page Caption</label>
+            <span id="caption-fb-counter" class="char-counter">0 chars</span>
+          </div>
+          <textarea id="edit-caption-fb" class="form-control" style="min-height: 100px;" oninput="updateCharCounters()"></textarea>
+          <div class="counter-tip">💡 Best practice: Clear COD reminder & WhatsApp/DM order call-to-action.</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Hashtags (Space separated)</label>
-          <input type="text" id="edit-hashtags" class="form-control">
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <label class="form-label">Hashtags (Space separated)</label>
+            <span id="hashtags-counter" class="char-counter">0 hashtags</span>
+          </div>
+          <input type="text" id="edit-hashtags" class="form-control" oninput="updateCharCounters()">
+          <div class="counter-tip">💡 Recommended: 5–8 targeted niche tags (#DermaplaningPakistan #GirliesGlow).</div>
         </div>
       </div>
 
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
         <button type="button" class="btn btn-primary" onclick="savePostEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Instagram Mobile Preview Modal (Social Media Skills + UI/UX Pro Max) -->
+  <div id="ig-preview-modal" class="modal-backdrop">
+    <div class="phone-mockup-wrapper">
+      <button class="phone-close-btn" onclick="closeMobilePreview()" title="Close Phone Preview">&times;</button>
+      
+      <div class="iphone-shell">
+        <div class="iphone-notch">
+          <span class="notch-speaker"></span>
+          <span class="notch-camera"></span>
+        </div>
+        <div class="phone-status-bar">
+          <span class="phone-time">9:41</span>
+          <div class="phone-status-icons">
+            <span>📶</span>
+            <span>⚡ 100%</span>
+          </div>
+        </div>
+
+        <div class="ig-app-header">
+          <div class="ig-logo-text">Instagram</div>
+          <div class="ig-header-icons">
+            <span class="ig-header-icon">♡</span>
+            <span class="ig-header-icon">💬</span>
+          </div>
+        </div>
+
+        <div class="ig-feed-scroll">
+          <div class="ig-post-header">
+            <div class="ig-user-info">
+              <img src="/GirliesGlow_Logo_NoBG.png" alt="Profile" class="ig-avatar">
+              <div class="ig-user-text">
+                <div class="ig-username-line">
+                  <span class="ig-username">girli_esglow</span>
+                  <span class="ig-verified-badge" title="Official Brand Account">✓</span>
+                </div>
+                <span class="ig-location">Pakistan • Sponsored</span>
+              </div>
+            </div>
+            <div class="ig-dots">•••</div>
+          </div>
+
+          <div id="ig-preview-media-container" class="ig-preview-media-box">
+            <!-- Dynamically populated -->
+          </div>
+
+          <div class="ig-engagement-bar">
+            <div class="ig-left-actions">
+              <span class="ig-icon" title="Like">❤️</span>
+              <span class="ig-icon" title="Comment">💬</span>
+              <span class="ig-icon" title="Share">↗️</span>
+            </div>
+            <span class="ig-icon" title="Save">🔖</span>
+          </div>
+
+          <div class="ig-likes-count">Liked by <strong>beauty_pakistan</strong> and <strong>1,428 others</strong></div>
+
+          <div class="ig-caption-body">
+            <span class="ig-caption-username">girli_esglow</span>
+            <span id="ig-preview-caption-text"></span>
+          </div>
+
+          <div id="ig-preview-hashtags" class="ig-hashtags-text"></div>
+          <div class="ig-timestamp">2 HOURS AGO • SEE TRANSLATION</div>
+        </div>
       </div>
     </div>
   </div>
