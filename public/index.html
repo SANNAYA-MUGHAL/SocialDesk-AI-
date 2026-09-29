@@ -29,6 +29,10 @@
           <span class="dot-green"></span>
           <span>Facebook: Girlies Glow Facebook Business Page</span>
         </a>
+        <button type="button" class="dest-pill" onclick="openMetaSettingsModal()" style="cursor: pointer; background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.4);" title="Configure Meta Graph API credentials for live publishing">
+          <span>⚙️</span>
+          <span>Meta API Settings</span>
+        </button>
       </div>
     </div>
   </header>
@@ -62,6 +66,7 @@
             <span id="stat-drafts" class="stat-badge amber">10 Drafts</span>
             <span id="stat-approved" class="stat-badge blue">0 Approved</span>
             <span id="stat-scheduled" class="stat-badge green">0 Scheduled</span>
+            <span id="stat-published" class="stat-badge purple" style="background: #F3E8FF; color: #683DA9;">0 Published</span>
           </div>
         </div>
       </div>
@@ -108,6 +113,7 @@
           <button type="button" class="filter-chip" data-status="Draft" onclick="setStatusFilter('Draft')">Draft</button>
           <button type="button" class="filter-chip" data-status="Approved" onclick="setStatusFilter('Approved')">Approved</button>
           <button type="button" class="filter-chip" data-status="Scheduled" onclick="setStatusFilter('Scheduled')">Scheduled</button>
+          <button type="button" class="filter-chip" data-status="Published" onclick="setStatusFilter('Published')">🟢 Published</button>
         </div>
       </div>
       <div class="filters-counter">
@@ -303,6 +309,94 @@
           <div id="ig-preview-hashtags" class="ig-hashtags-text"></div>
           <div class="ig-timestamp">2 HOURS AGO • SEE TRANSLATION</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meta API Settings Modal -->
+  <div id="meta-settings-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">⚙️ Meta Developer API Settings</h3>
+        <button class="modal-close" onclick="closeMetaSettingsModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px; line-height: 1.5;">
+          Connect your Meta Graph API credentials to enable 1-click live publishing with human approval to your Instagram & Facebook Page.
+        </p>
+
+        <div id="meta-connection-status" style="display: none; padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 13px; font-weight: 600;"></div>
+
+        <div class="form-group">
+          <label class="form-label">Meta Page Access Token</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="password" id="meta-access-token" class="form-control" placeholder="EAABw..." autocomplete="off">
+            <button type="button" class="btn btn-secondary" onclick="toggleTokenVisibility()" style="padding: 6px 12px; font-size: 12px;" title="Show/Hide Token">👁️</button>
+          </div>
+          <div class="counter-tip">Generate from <a href="https://developers.facebook.com/tools/explorer/" target="_blank" style="color: #683DA9; font-weight: 600;">Meta Graph API Explorer</a> with <code>pages_manage_posts</code> and <code>instagram_content_publish</code>.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Facebook Business Page ID</label>
+          <input type="text" id="meta-page-id" class="form-control" value="61592791861631">
+          <div class="counter-tip">Verified Girlies Glow Facebook Business Page ID.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Instagram Business Account ID</label>
+          <input type="text" id="meta-ig-user-id" class="form-control" placeholder="e.g. 178414...">
+          <div class="counter-tip">Auto-detected upon connection or retrieved via <code>GET /61592791861631?fields=instagram_business_account</code>.</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button type="button" class="btn btn-outline-primary" onclick="testMetaConnection()">⚡ Test Connection</button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="closeMetaSettingsModal()">Close</button>
+          <button type="button" class="btn btn-primary" onclick="saveMetaSettings()">Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Human Approval & Live Publish Modal -->
+  <div id="publish-confirm-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">⚡ Human Approval: Publish Live to Meta</h3>
+        <button class="modal-close" onclick="closePublishConfirmModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="publish-post-id">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <div id="publish-preview-thumb" style="width: 140px; height: 175px; margin: 0 auto 12px; border-radius: 12px; overflow: hidden; border: 2px solid #E9DFF7; box-shadow: 0 4px 12px rgba(104, 61, 169, 0.1);">
+            <!-- Dynamic Thumbnail -->
+          </div>
+          <h4 id="publish-modal-title" style="color: #2D1B4E; font-size: 16px; font-weight: 700;">Post Title</h4>
+        </div>
+
+        <div class="safety-box" style="background: #F0FDF4; border: 1px solid #86EFAC; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+          <div style="font-weight: 700; color: #166534; font-size: 13px; margin-bottom: 6px;">
+            🛡️ Verified Publishing Destinations:
+          </div>
+          <ul style="font-size: 12.5px; color: #14532D; margin-left: 20px; line-height: 1.6;">
+            <li><strong>Instagram:</strong> <code>@girli_esglow</code></li>
+            <li><strong>Facebook Page:</strong> <code>Girlies Glow Facebook Business Page (ID: 61592791861631)</code></li>
+            <li><strong>Guardrail:</strong> Sannaya Mughal personal Facebook profile strictly blocked.</li>
+          </ul>
+        </div>
+
+        <div class="approval-checkbox-group" style="background: #FAF7FE; border: 1px solid #E9DDF5; border-radius: 12px; padding: 14px;">
+          <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 13px; color: #2D1B4E; font-weight: 600;">
+            <input type="checkbox" id="human-approval-check" style="width: 18px; height: 18px; accent-color: #683DA9; margin-top: 2px;" checked>
+            <span>I have reviewed the creative and captions, and I authorize immediate live publishing to Girlies Glow accounts.</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closePublishConfirmModal()">Cancel</button>
+        <button type="button" id="confirm-publish-btn" class="btn btn-success" style="background: linear-gradient(135deg, #059669 0%, #10B981 100%); font-weight: 700;" onclick="executeLivePublish()">
+          <span>⚡</span> CONFIRM & PUBLISH LIVE
+        </button>
       </div>
     </div>
   </div>

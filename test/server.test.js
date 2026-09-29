@@ -252,3 +252,42 @@ test('Static file serving serves files from public/ and workspace assets', async
   const missingRes = await simulateRequest('GET', '/non-existent-file.xyz');
   assert.equal(missingRes.status, 404);
 });
+
+test('GET and POST /api/settings/meta manages Meta API configuration', async () => {
+  const getRes = await simulateRequest('GET', '/api/settings/meta');
+  assert.equal(getRes.status, 200);
+  const getBody = await getRes.json();
+  assert.equal(getBody.pageId, '61592791861631');
+
+  const postRes = await simulateRequest('POST', '/api/settings/meta', {
+    pageId: '61592791861631',
+    igUserId: '178414555'
+  });
+  assert.equal(postRes.status, 200);
+  const postBody = await postRes.json();
+  assert.equal(postBody.config.igUserId, '178414555');
+});
+
+test('POST /api/posts/:id/publish-live enforces human approval and destination safety', async () => {
+  // 1. Reset post 1 to Draft and attempt publish - should fail with human approval error
+  await simulateRequest('PUT', '/api/posts/1', { status: 'Draft' });
+  const draftRes = await simulateRequest('POST', '/api/posts/1/publish-live', {
+    options: { mockPublish: true }
+  });
+  assert.equal(draftRes.status, 400);
+  const draftBody = await draftRes.json();
+  assert.ok(draftBody.error.includes('Human Approval Required'));
+
+  // 2. Approve post 1 and publish in mock mode - should succeed
+  await simulateRequest('POST', '/api/posts/1/approve');
+  const pubRes = await simulateRequest('POST', '/api/posts/1/publish-live', {
+    options: { mockPublish: true }
+  });
+  assert.equal(pubRes.status, 200);
+  const pubBody = await pubRes.json();
+  assert.equal(pubBody.success, true);
+  assert.equal(pubBody.post.status, 'Published');
+  assert.ok(pubBody.details.facebook.postId);
+  assert.ok(pubBody.details.instagram.mediaId);
+});
+

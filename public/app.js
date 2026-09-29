@@ -56,10 +56,19 @@ if (typeof window !== 'undefined') {
   window.closeMobilePreview = closeMobilePreview;
   window.updateCharCounters = updateCharCounters;
   window.getFilteredPosts = getFilteredPosts;
+  window.openPublishConfirmModal = openPublishConfirmModal;
+  window.closePublishConfirmModal = closePublishConfirmModal;
+  window.executeLivePublish = executeLivePublish;
+  window.openMetaSettingsModal = openMetaSettingsModal;
+  window.closeMetaSettingsModal = closeMetaSettingsModal;
+  window.toggleTokenVisibility = toggleTokenVisibility;
+  window.testMetaConnection = testMetaConnection;
+  window.saveMetaSettings = saveMetaSettings;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   loadPosts();
+  loadMetaSettings();
 
   const editModal = document.getElementById('edit-modal');
   if (editModal) {
@@ -75,10 +84,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const metaModal = document.getElementById('meta-settings-modal');
+  if (metaModal) {
+    metaModal.addEventListener('click', (e) => {
+      if (e.target === metaModal) closeMetaSettingsModal();
+    });
+  }
+
+  const pubModal = document.getElementById('publish-confirm-modal');
+  if (pubModal) {
+    pubModal.addEventListener('click', (e) => {
+      if (e.target === pubModal) closePublishConfirmModal();
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeEditModal();
       closeMobilePreview();
+      closeMetaSettingsModal();
+      closePublishConfirmModal();
     }
   });
 });
@@ -105,14 +130,17 @@ function updateStats() {
   const drafts = posts.filter(p => p.status === 'Draft').length;
   const approved = posts.filter(p => p.status === 'Approved').length;
   const scheduled = posts.filter(p => p.status === 'Scheduled').length;
+  const published = posts.filter(p => p.status === 'Published').length;
 
   const draftsEl = document.getElementById('stat-drafts');
   const approvedEl = document.getElementById('stat-approved');
   const scheduledEl = document.getElementById('stat-scheduled');
+  const publishedEl = document.getElementById('stat-published');
 
   if (draftsEl) draftsEl.textContent = `${drafts} Drafts`;
   if (approvedEl) approvedEl.textContent = `${approved} Approved`;
   if (scheduledEl) scheduledEl.textContent = `${scheduled} Scheduled`;
+  if (publishedEl) publishedEl.textContent = `${published} Published`;
 
   const showingEl = document.getElementById('showing-posts-count');
   if (showingEl) {
@@ -258,6 +286,13 @@ function renderGrid() {
         <div class="hashtags-box">
           ${Array.isArray(post.hashtags) ? post.hashtags.map(h => escapeHtml(h)).join(' ') : escapeHtml(post.hashtags || '')}
         </div>
+
+        ${post.status === 'Published' && post.metaPublishDetails ? `
+          <div class="live-meta-links">
+            ${post.metaPublishDetails.instagram?.url ? `<a href="${escapeHtml(post.metaPublishDetails.instagram.url)}" target="_blank" class="live-link-pill">📸 View on Instagram</a>` : ''}
+            ${post.metaPublishDetails.facebook?.url ? `<a href="${escapeHtml(post.metaPublishDetails.facebook.url)}" target="_blank" class="live-link-pill">👍 View on Facebook Page</a>` : ''}
+          </div>
+        ` : ''}
       </div>
 
       <div class="post-card-actions">
@@ -265,15 +300,25 @@ function renderGrid() {
           <span>✏️</span> EDIT
         </button>
         <button type="button" class="card-action-btn btn-approve-toggle" onclick="toggleApprove('${post.id}')" title="Toggle post approval">
-          <span>${post.status === 'Approved' ? '✓' : post.status === 'Scheduled' ? '✓' : '○'}</span>
-          ${post.status === 'Approved' || post.status === 'Scheduled' ? 'APPROVED' : 'APPROVE'}
+          <span>${post.status === 'Approved' || post.status === 'Scheduled' || post.status === 'Published' ? '✓' : '○'}</span>
+          ${post.status === 'Approved' || post.status === 'Scheduled' || post.status === 'Published' ? 'APPROVED' : 'APPROVE'}
         </button>
         <button type="button" class="card-action-btn" onclick="regenerateMedia('${post.id}')" title="Re-render creative graphics">
           <span>🎨</span> REGEN
         </button>
-        <button type="button" class="card-action-btn btn-schedule-action" onclick="schedulePost('${post.id}')" title="Validate safety & schedule">
-          <span>🚀</span> ${post.status === 'Scheduled' ? 'SCHEDULED' : 'SCHEDULE'}
-        </button>
+        ${post.status === 'Published' ? `
+          <button type="button" class="card-action-btn btn-published-done" onclick="openPublishConfirmModal('${post.id}')" title="Published live to Meta. Click to republish if needed.">
+            <span>🟢</span> PUBLISHED
+          </button>
+        ` : (post.status === 'Approved' || post.status === 'Scheduled') ? `
+          <button type="button" class="card-action-btn btn-publish-live" onclick="openPublishConfirmModal('${post.id}')" title="Human Approval: Click to review and publish live to Instagram & Facebook">
+            <span>⚡</span> PUBLISH LIVE
+          </button>
+        ` : `
+          <button type="button" class="card-action-btn btn-publish-locked" onclick="showToast('Human Approval Required: Click APPROVE first before publishing live!', 'info')" title="Human Approval Required: Post must be Approved first">
+            <span>🔒</span> PUBLISH LIVE
+          </button>
+        `}
       </div>
     `;
 
@@ -846,4 +891,220 @@ function updateCharCounters() {
     tagsCountEl.textContent = `${count} hashtags`;
   }
 }
+
+// Human Approval & Live Publish Modal Handlers
+let pendingPublishPostId = null;
+
+function openPublishConfirmModal(postId) {
+  const post = findPost(postId);
+  if (!post) {
+    showToast('Post not found', 'error');
+    return;
+  }
+
+  // Strict human approval verification
+  if (post.status !== 'Approved' && post.status !== 'Scheduled' && post.status !== 'Published') {
+    showToast('Human Approval Required: Click APPROVE first before publishing live!', 'error');
+    return;
+  }
+
+  pendingPublishPostId = post.id;
+  const idInput = document.getElementById('publish-post-id');
+  if (idInput) idInput.value = post.id;
+
+  const titleEl = document.getElementById('publish-modal-title');
+  if (titleEl) titleEl.textContent = `Post ${post.postNumber || post.id} — ${post.title}`;
+
+  const thumbContainer = document.getElementById('publish-preview-thumb');
+  if (thumbContainer) {
+    const cacheBuster = mediaCacheBusters[post.id] ? `?t=${mediaCacheBusters[post.id]}` : '';
+    const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
+    const mediaFile = rawMedia + cacheBuster;
+    thumbContainer.innerHTML = `<img src="${escapeHtml(mediaFile)}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+  }
+
+  const checkEl = document.getElementById('human-approval-check');
+  if (checkEl) checkEl.checked = true;
+
+  const modal = document.getElementById('publish-confirm-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closePublishConfirmModal() {
+  pendingPublishPostId = null;
+  const modal = document.getElementById('publish-confirm-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function executeLivePublish() {
+  const idInput = document.getElementById('publish-post-id');
+  const postId = pendingPublishPostId || (idInput ? idInput.value : null);
+  const post = findPost(postId);
+  if (!post) {
+    showToast('Post not found', 'error');
+    return;
+  }
+
+  const checkEl = document.getElementById('human-approval-check');
+  if (checkEl && !checkEl.checked) {
+    showToast('Please check the human approval box to confirm publishing authorization.', 'error');
+    return;
+  }
+
+  const confirmBtn = document.getElementById('confirm-publish-btn');
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<span>⏳</span> Publishing to Meta...';
+  }
+
+  try {
+    const res = await fetch(`/api/posts/${post.id}/publish-live`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ options: {} })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to publish to Meta');
+    }
+
+    const idx = findPostIndex(post.id);
+    if (idx !== -1 && data.post) {
+      posts[idx] = data.post;
+    }
+
+    closePublishConfirmModal();
+    updateStats();
+    renderCurrentView();
+
+    const modeText = data.details?.mode === 'mock' ? ' (Simulated - Add token in Meta Settings to publish live)' : '';
+    showToast(`Post ${post.id} successfully published to Meta! 🎉${modeText}`, 'success');
+  } catch (err) {
+    showToast(`Publishing Error: ${err.message}`, 'error');
+  } finally {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = '<span>⚡</span> CONFIRM & PUBLISH LIVE';
+    }
+  }
+}
+
+// Meta API Settings Modal Handlers
+async function openMetaSettingsModal() {
+  const modal = document.getElementById('meta-settings-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  await loadMetaSettings();
+}
+
+function closeMetaSettingsModal() {
+  const modal = document.getElementById('meta-settings-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function toggleTokenVisibility() {
+  const input = document.getElementById('meta-access-token');
+  if (!input) return;
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function loadMetaSettings() {
+  try {
+    const res = await fetch('/api/settings/meta');
+    if (!res.ok) return;
+    const cfg = await res.json();
+    const pageIdEl = document.getElementById('meta-page-id');
+    const igIdEl = document.getElementById('meta-ig-user-id');
+    if (pageIdEl && cfg.pageId) pageIdEl.value = cfg.pageId;
+    if (igIdEl && cfg.igUserId) igIdEl.value = cfg.igUserId;
+
+    const statusEl = document.getElementById('meta-connection-status');
+    if (statusEl) {
+      if (cfg.isConfigured) {
+        statusEl.style.display = 'block';
+        statusEl.style.background = '#ECFDF5';
+        statusEl.style.color = '#065F46';
+        statusEl.style.border = '1px solid #A7F3D0';
+        statusEl.textContent = '🟢 Meta Access Token is configured and ready for live publishing!';
+      } else {
+        statusEl.style.display = 'block';
+        statusEl.style.background = '#FFFBEB';
+        statusEl.style.color = '#92400E';
+        statusEl.style.border = '1px solid #FDE68A';
+        statusEl.textContent = 'ℹ️ No Meta Token set yet. Live publish runs in verified safe mode until a token is entered.';
+      }
+    }
+  } catch (err) {
+    console.warn('Could not load meta settings:', err.message);
+  }
+}
+
+async function testMetaConnection() {
+  const token = document.getElementById('meta-access-token').value;
+  const pageId = document.getElementById('meta-page-id').value;
+  const igUserId = document.getElementById('meta-ig-user-id').value;
+
+  const statusEl = document.getElementById('meta-connection-status');
+  if (!statusEl) return;
+  statusEl.style.display = 'block';
+  statusEl.style.background = '#EFF6FF';
+  statusEl.style.color = '#1D4ED8';
+  statusEl.style.border = '1px solid #BFDBFE';
+  statusEl.textContent = 'Testing connection with Meta Graph API...';
+
+  try {
+    const res = await fetch('/api/settings/meta/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken: token, pageId, igUserId })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.isValid) {
+      statusEl.style.background = '#FEF2F2';
+      statusEl.style.color = '#991B1B';
+      statusEl.style.border = '1px solid #FECACA';
+      statusEl.textContent = `❌ Meta Error: ${data.error || 'Connection failed'}`;
+    } else {
+      statusEl.style.background = '#ECFDF5';
+      statusEl.style.color = '#065F46';
+      statusEl.style.border = '1px solid #A7F3D0';
+      statusEl.textContent = `✅ Connected to "${data.pageName}" (Page ID: ${data.pageId}, Instagram: ${data.igUserId})!`;
+      if (data.igUserId && !igUserId) {
+        document.getElementById('meta-ig-user-id').value = data.igUserId;
+      }
+      showToast('Meta connection verified successfully!', 'success');
+    }
+  } catch (err) {
+    statusEl.style.background = '#FEF2F2';
+    statusEl.style.color = '#991B1B';
+    statusEl.style.border = '1px solid #FECACA';
+    statusEl.textContent = '❌ Network error: ' + err.message;
+  }
+}
+
+async function saveMetaSettings() {
+  const token = document.getElementById('meta-access-token').value;
+  const pageId = document.getElementById('meta-page-id').value;
+  const igUserId = document.getElementById('meta-ig-user-id').value;
+
+  try {
+    const res = await fetch('/api/settings/meta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...(token ? { accessToken: token } : {}),
+        pageId,
+        igUserId
+      })
+    });
+    if (!res.ok) throw new Error('Failed to save settings');
+    showToast('Meta API settings saved successfully! ⚙️', 'success');
+    closeMetaSettingsModal();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 

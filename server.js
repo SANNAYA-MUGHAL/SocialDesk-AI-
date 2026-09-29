@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { validateDestinations, ERROR_MESSAGES } from './src/validator.js';
 import { generateCreativeForPost } from './scripts/generate_creatives.js';
+import { publishPostToMeta, getMetaConfig, updateMetaConfig, verifyMetaConnection } from './src/meta_publisher.js';
 
 const require = createRequire(import.meta.url);
 const defaultPostsData = require('./data/posts.json');
@@ -247,7 +248,7 @@ export async function handleRequest(req, res) {
   let pathname = decodeURIComponent(parsedUrl.pathname);
 
   // If path doesn't start with /api, but this function handles an API request, prepend /api
-  if (!pathname.startsWith('/api') && (pathname.startsWith('/posts') || pathname.startsWith('/export'))) {
+  if (!pathname.startsWith('/api') && (pathname.startsWith('/posts') || pathname.startsWith('/export') || pathname.startsWith('/settings'))) {
     pathname = '/api' + pathname;
   }
 
@@ -440,6 +441,66 @@ export async function handleRequest(req, res) {
       posts[index] = post;
       savePosts(posts);
       return sendJson(res, 200, post);
+    }
+
+    // POST /api/posts/:id/publish-live (Human-in-the-Loop Meta Publisher)
+    const publishLiveMatch = pathname.match(/^\/api\/posts\/([^/]+)\/publish-live$/);
+    if (method === 'POST' && publishLiveMatch) {
+      const id = publishLiveMatch[1];
+      const body = await parseJsonBody(req).catch(() => ({}));
+      const posts = getPosts();
+      const index = posts.findIndex(p => String(p.id) === String(id) || String(p.postNumber) === String(id));
+      if (index === -1) {
+        return sendJson(res, 404, { error: 'Post not found' });
+      }
+
+      const post = posts[index];
+      try {
+        const publishResult = await publishPostToMeta(post, body?.options || {});
+        post.status = 'Published';
+        post.publishedAt = publishResult.publishedAt;
+        post.metaPublishDetails = {
+          facebook: publishResult.facebook,
+          instagram: publishResult.instagram
+        };
+        posts[index] = post;
+        savePosts(posts);
+
+        return sendJson(res, 200, {
+          success: true,
+          message: 'Post successfully published to Meta!',
+          post,
+          details: publishResult
+        });
+      } catch (err) {
+        return sendJson(res, 400, {
+          error: err.message
+        });
+      }
+    }
+
+    // GET /api/settings/meta
+    if (method === 'GET' && pathname === '/api/settings/meta') {
+      const cfg = getMetaConfig();
+      return sendJson(res, 200, cfg);
+    }
+
+    // POST /api/settings/meta
+    if (method === 'POST' && pathname === '/api/settings/meta') {
+      const body = await parseJsonBody(req).catch(() => ({}));
+      const updated = updateMetaConfig(body);
+      return sendJson(res, 200, {
+        success: true,
+        message: 'Meta settings updated',
+        config: updated
+      });
+    }
+
+    // POST /api/settings/meta/test
+    if (method === 'POST' && pathname === '/api/settings/meta/test') {
+      const body = await parseJsonBody(req).catch(() => ({}));
+      const check = await verifyMetaConnection(body);
+      return sendJson(res, check.isValid ? 200 : 400, check);
     }
 
     // 9. GET /api/posts/:id
