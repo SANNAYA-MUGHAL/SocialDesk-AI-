@@ -159,13 +159,39 @@ export async function publishPostToMeta(post, options = {}) {
     instagram: null
   };
 
+  let pageToken = cfg.accessToken;
+  let targetPageId = cfg.pageId || '1287362551122727';
+  let targetIgId = cfg.igUserId;
+
+  // Auto-resolve Page Access Token and Page ID if User Token was supplied
+  try {
+    const accUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
+    const accRes = await fetch(accUrl);
+    const accData = await accRes.json();
+    if (accRes.ok && Array.isArray(accData.data)) {
+      const ggPage = accData.data.find(
+        p => String(p.id) === String(cfg.pageId) ||
+             String(p.id) === '1287362551122727' ||
+             String(p.id) === '61592791861631' ||
+             (p.name && p.name.toLowerCase().includes('girlies glow'))
+      );
+      if (ggPage) {
+        if (ggPage.access_token) pageToken = ggPage.access_token;
+        if (ggPage.id) targetPageId = ggPage.id;
+        if (ggPage.instagram_business_account?.id && !targetIgId) {
+          targetIgId = ggPage.instagram_business_account.id;
+        }
+      }
+    }
+  } catch (_) {}
+
   // 3. Publish to Facebook Business Page
   try {
-    const fbEndpoint = `https://graph.facebook.com/v19.0/${cfg.pageId}/photos`;
+    const fbEndpoint = `https://graph.facebook.com/v19.0/${targetPageId}/photos`;
     const fbPayload = new URLSearchParams({
       url: publicImageUrl,
       caption: post.captionFb || post.captionIg || '',
-      access_token: cfg.accessToken
+      access_token: pageToken
     });
 
     const fbRes = await fetch(fbEndpoint, {
@@ -174,28 +200,32 @@ export async function publishPostToMeta(post, options = {}) {
     });
     const fbData = await fbRes.json();
     if (!fbRes.ok || fbData.error) {
-      throw new Error(fbData.error?.message || `Facebook publish failed (HTTP ${fbRes.status})`);
+      const errMsg = fbData.error?.message || `Facebook publish failed (HTTP ${fbRes.status})`;
+      if (errMsg.includes('timeline') || errMsg.includes('200')) {
+        throw new Error(`${errMsg}. Tip: Make sure to click "Generate Access Token" in Graph API Explorer with pages_manage_posts enabled, or select "Girlies Glow" under Page Access Tokens.`);
+      }
+      throw new Error(errMsg);
     }
 
     results.facebook = {
-      pageId: cfg.pageId,
+      pageId: targetPageId,
       postId: fbData.post_id || fbData.id,
-      url: `https://www.facebook.com/p/Girlies-Glow-${cfg.pageId}/`
+      url: `https://www.facebook.com/p/Girlies-Glow-${targetPageId}/`
     };
   } catch (err) {
     throw new Error(`Facebook Page publish failed: ${err.message}`);
   }
 
   // 4. Publish to Instagram Professional (@girli_esglow)
-  if (cfg.igUserId) {
+  if (targetIgId) {
     try {
       // Step A: Create Media Container
-      const igMediaEndpoint = `https://graph.facebook.com/v19.0/${cfg.igUserId}/media`;
+      const igMediaEndpoint = `https://graph.facebook.com/v19.0/${targetIgId}/media`;
       const fullCaption = `${post.captionIg || ''}\n\n${Array.isArray(post.hashtags) ? post.hashtags.join(' ') : (post.hashtags || '')}`.trim();
       const containerPayload = new URLSearchParams({
         image_url: publicImageUrl,
         caption: fullCaption,
-        access_token: cfg.accessToken
+        access_token: pageToken
       });
 
       const containerRes = await fetch(igMediaEndpoint, {
@@ -208,10 +238,10 @@ export async function publishPostToMeta(post, options = {}) {
       }
 
       // Step B: Publish Container
-      const publishEndpoint = `https://graph.facebook.com/v19.0/${cfg.igUserId}/media_publish`;
+      const publishEndpoint = `https://graph.facebook.com/v19.0/${targetIgId}/media_publish`;
       const publishPayload = new URLSearchParams({
         creation_id: containerData.id,
-        access_token: cfg.accessToken
+        access_token: pageToken
       });
 
       const publishRes = await fetch(publishEndpoint, {
@@ -224,7 +254,7 @@ export async function publishPostToMeta(post, options = {}) {
       }
 
       results.instagram = {
-        igUserId: cfg.igUserId,
+        igUserId: targetIgId,
         mediaId: publishData.id,
         url: 'https://www.instagram.com/girli_esglow/'
       };
