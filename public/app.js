@@ -58,7 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadPosts() {
   try {
     const res = await fetch('/api/posts');
-    if (!res.ok) throw new Error('Failed to fetch posts');
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || `HTTP ${res.status}`);
+    }
     posts = await res.json();
     updateStats();
     renderCurrentView();
