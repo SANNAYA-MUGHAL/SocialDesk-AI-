@@ -38,7 +38,37 @@ export async function verifyMetaConnection(overrideConfig = {}) {
   }
 
   try {
-    // Check Facebook Page Access
+    // 1. First check /me/accounts in case a User Access Token was entered
+    const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
+    const accountsRes = await fetch(accountsUrl);
+    const accountsData = await accountsRes.json();
+
+    if (accountsRes.ok && Array.isArray(accountsData.data)) {
+      const ggPage = accountsData.data.find(
+        p => String(p.id) === String(cfg.pageId) || (p.name && p.name.toLowerCase().includes('girlies glow'))
+      );
+
+      if (ggPage) {
+        const pageToken = ggPage.access_token || cfg.accessToken;
+        const igId = ggPage.instagram_business_account?.id || cfg.igUserId;
+
+        // Auto-save the resolved Page Token and Instagram ID
+        metaConfig.accessToken = pageToken;
+        metaConfig.pageId = ggPage.id;
+        if (igId) metaConfig.igUserId = igId;
+
+        return {
+          isValid: true,
+          pageName: ggPage.name,
+          pageId: ggPage.id,
+          igUserId: igId || 'Not connected yet',
+          resolvedPageToken: pageToken,
+          message: `Connected to "${ggPage.name}"! Auto-detected Page Access Token and Instagram ID.`
+        };
+      }
+    }
+
+    // 2. Direct check as Facebook Page Token
     const pageUrl = `https://graph.facebook.com/v19.0/${cfg.pageId}?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
     const pageRes = await fetch(pageUrl);
     const pageData = await pageRes.json();
