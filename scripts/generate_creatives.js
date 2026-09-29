@@ -64,7 +64,7 @@ export function extractGifFrame(gifRelativeFilename) {
 // Render SVG string to PNG file using macOS sips
 export function renderSvgToPng(svgContent, outputFilePath) {
   fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
-  const tmpSvg = outputFilePath.replace(/\.png$/, `_tmp_${Date.now()}.svg`);
+  const tmpSvg = outputFilePath.replace(/\.png$/, `_tmp_${process.pid}_${Date.now()}_${Math.random().toString(36).substring(2)}.svg`);
   fs.writeFileSync(tmpSvg, svgContent, 'utf8');
   try {
     execSync(`/usr/bin/sips -s format png "${tmpSvg}" --out "${outputFilePath}"`, { stdio: 'pipe' });

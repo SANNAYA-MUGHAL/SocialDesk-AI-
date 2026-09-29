@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Girlies Glow — Social Media Content Scheduler</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" type="image/png" href="/GirliesGlow_Logo_NoBG.png">
+</head>
+<body>
+
+  <!-- Brand Header -->
+  <header class="brand-header">
+    <div class="brand-header-inner">
+      <div class="brand-identity">
+        <img src="/GirliesGlow_Logo_NoBG.png" alt="Girlies Glow Logo" class="brand-logo-img">
+        <div class="brand-text">
+          <h1>Girlies Glow</h1>
+          <p>Skin That Speaks Softly • Social Media Content Scheduler</p>
+        </div>
+      </div>
+
+      <div class="destination-badges">
+        <a href="https://www.instagram.com/girli_esglow/" target="_blank" class="dest-pill verified" title="Verified Instagram Destination">
+          <span class="dot-green"></span>
+          <span>Instagram: @girli_esglow</span>
+        </a>
+        <a href="https://www.facebook.com/p/Girlies-Glow-61592791861631/" target="_blank" class="dest-pill verified" title="Verified Facebook Business Page (ID: 61592791861631)">
+          <span class="dot-green"></span>
+          <span>Facebook: Girlies Glow Facebook Business Page</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Global Guardrail Alert Banner -->
+  <div id="guardrail-alert" class="alert-banner">
+    <div class="alert-banner-inner">
+      <div class="alert-text">
+        <span style="font-size: 20px;">🛑</span>
+        <span id="guardrail-error-msg">Facebook destination is personal profile. Select Girlies Glow Facebook Page.</span>
+      </div>
+      <button type="button" class="btn btn-secondary" onclick="dismissGuardrailAlert()" style="padding: 6px 12px; font-size: 12px;">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- Global Controls Banner -->
+  <section class="controls-container">
+    <div class="controls-card">
+      <div class="stats-group">
+        <div class="stat-item">
+          <span class="stat-label">Total Posts</span>
+          <span id="stat-total" class="stat-value">10</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Timezone</span>
+          <span class="stat-badge blue">Pakistan Standard Time (PKT / UTC+5)</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Status</span>
+          <div style="display: flex; gap: 6px; margin-top: 2px;">
+            <span id="stat-drafts" class="stat-badge amber">10 Drafts</span>
+            <span id="stat-approved" class="stat-badge blue">0 Approved</span>
+            <span id="stat-scheduled" class="stat-badge green">0 Scheduled</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="view-switches">
+        <button id="view-grid-btn" class="view-btn active" onclick="switchView('grid')">Visual Grid</button>
+        <button id="view-table-btn" class="view-btn" onclick="switchView('table')">Scheduler Table</button>
+        <button id="view-calendar-btn" class="view-btn" onclick="switchView('calendar')">Calendar Timeline</button>
+      </div>
+
+      <div class="actions-group">
+        <button id="approve-all-btn" class="btn btn-outline-primary" onclick="handleApproveAll()">
+          <span>✓</span> APPROVE ALL
+        </button>
+        <button id="schedule-all-btn" class="btn btn-success" onclick="handleScheduleAll()">
+          <span>🚀</span> SCHEDULE ALL
+        </button>
+        <button class="btn btn-secondary" onclick="exportData('csv')">
+          <span>📥</span> Export CSV
+        </button>
+        <button class="btn btn-secondary" onclick="exportData('json')">
+          <span>📦</span> Export JSON
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- View 1: Visual Feed Grid -->
+  <main id="posts-grid" class="posts-grid">
+    <!-- Populated dynamically by app.js -->
+  </main>
+
+  <!-- View 2: Scheduler Table View -->
+  <section id="table-container" class="table-view-container">
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Post Title & Angle</th>
+            <th>Format</th>
+            <th>Instagram</th>
+            <th>Facebook Page</th>
+            <th>Media Assets</th>
+            <th>Caption Preview</th>
+            <th>Hashtags</th>
+            <th>Schedule (PKT)</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <!-- Populated dynamically by app.js -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- View 3: Calendar Timeline View -->
+  <section id="calendar-container" class="calendar-view-container">
+    <div id="timeline-grid" class="timeline-grid">
+      <!-- Populated dynamically by app.js -->
+    </div>
+  </section>
+
+  <!-- Edit Post Modal -->
+  <div id="edit-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modal-title" class="modal-title">Edit Post</h3>
+        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="edit-post-id">
+
+        <div class="form-group">
+          <label class="form-label">Post Title</label>
+          <input type="text" id="edit-title" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hook / Angle</label>
+          <input type="text" id="edit-angle" class="form-control">
+        </div>
+
+        <div class="destination-selector-group">
+          <div class="form-group">
+            <label class="form-label" style="display: flex; justify-content: space-between;">
+              <span>Facebook Destination (Safety Rule)</span>
+              <span style="font-size: 11px; color: #683DA9;">Target must be Business Page</span>
+            </label>
+            <select id="edit-fb-dest" class="form-control">
+              <option value="Girlies Glow Facebook Business Page">Girlies Glow Facebook Business Page (Verified Page ID: 61592791861631)</option>
+              <option value="Sannaya Mughal personal Facebook profile">⚠️ Sannaya Mughal personal Facebook profile (Test Guardrail Block)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Instagram Destination</label>
+            <input type="text" id="edit-ig-dest" class="form-control" value="@girli_esglow" readonly>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label">Scheduled Date</label>
+            <input type="date" id="edit-date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Scheduled Time (Pakistan Standard Time / PKT)</label>
+            <input type="time" id="edit-time" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Instagram Caption (Roman Urdu + English)</label>
+          <textarea id="edit-caption-ig" class="form-control" style="min-height: 120px;"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Facebook Page Caption</label>
+          <textarea id="edit-caption-fb" class="form-control" style="min-height: 100px;"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hashtags (Space separated)</label>
+          <input type="text" id="edit-hashtags" class="form-control">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="savePostEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
