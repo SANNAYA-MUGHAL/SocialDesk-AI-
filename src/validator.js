@@ -9,6 +9,7 @@
 
 export const OFFICIAL_FACEBOOK_PAGE_NAME = 'Girlies Glow Facebook Business Page';
 export const OFFICIAL_FACEBOOK_PAGE_ID = '61592791861631';
+export const OFFICIAL_FACEBOOK_PAGE_ALT_ID = '1287362551122727';
 export const OFFICIAL_FACEBOOK_PAGE_URL = 'https://www.facebook.com/p/Girlies-Glow-61592791861631/';
 
 export const OFFICIAL_INSTAGRAM_HANDLE = '@girli_esglow';
@@ -47,10 +48,11 @@ export function isValidFacebookDestination(fb) {
   // Exact canonical business page matches
   if (trimmed === OFFICIAL_FACEBOOK_PAGE_NAME) return true;
   if (trimmed === OFFICIAL_FACEBOOK_PAGE_ID) return true;
+  if (trimmed === OFFICIAL_FACEBOOK_PAGE_ALT_ID) return true;
   if (trimmed === OFFICIAL_FACEBOOK_PAGE_URL) return true;
 
   // Normalized URL or ID match
-  if (lower.includes(OFFICIAL_FACEBOOK_PAGE_ID)) return true;
+  if (lower.includes(OFFICIAL_FACEBOOK_PAGE_ID) || lower.includes(OFFICIAL_FACEBOOK_PAGE_ALT_ID)) return true;
 
   // Verified business page name variations (strictly requiring business page, not groups)
   if (
