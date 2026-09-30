@@ -201,19 +201,16 @@ export async function publishPostToMeta(post, options = {}) {
     const fbData = await fbRes.json();
     if (!fbRes.ok || fbData.error) {
       const errMsg = fbData.error?.message || `Facebook publish failed (HTTP ${fbRes.status})`;
-      if (errMsg.includes('timeline') || errMsg.includes('200')) {
-        throw new Error(`${errMsg}. Tip: Make sure to click "Generate Access Token" in Graph API Explorer with pages_manage_posts enabled, or select "Girlies Glow" under Page Access Tokens.`);
-      }
-      throw new Error(errMsg);
+      results.facebookError = errMsg;
+    } else {
+      results.facebook = {
+        pageId: targetPageId,
+        postId: fbData.post_id || fbData.id,
+        url: `https://www.facebook.com/p/Girlies-Glow-${targetPageId}/`
+      };
     }
-
-    results.facebook = {
-      pageId: targetPageId,
-      postId: fbData.post_id || fbData.id,
-      url: `https://www.facebook.com/p/Girlies-Glow-${targetPageId}/`
-    };
   } catch (err) {
-    throw new Error(`Facebook Page publish failed: ${err.message}`);
+    results.facebookError = err.message;
   }
 
   // 4. Publish to Instagram Professional (@girli_esglow)
@@ -259,9 +256,26 @@ export async function publishPostToMeta(post, options = {}) {
         url: 'https://www.instagram.com/girli_esglow/'
       };
     } catch (err) {
-      // If Instagram fails, record error but keep Facebook publish
       results.instagramError = err.message;
     }
+  }
+
+  // If neither Facebook nor Instagram succeeded, throw actionable combined error
+  if (!results.facebook && !results.instagram) {
+    const reasons = [];
+    if (results.facebookError) {
+      if (results.facebookError.includes('pages_manage_posts')) {
+        reasons.push(`Facebook Page: pages_manage_posts permission required (Add "Manage and publish posts on Facebook" use case in Meta App)`);
+      } else {
+        reasons.push(`Facebook Page: ${results.facebookError}`);
+      }
+    }
+    if (results.instagramError) {
+      reasons.push(`Instagram: ${results.instagramError}`);
+    } else if (!targetIgId) {
+      reasons.push(`Instagram: No Instagram Business ID found. Ensure @girli_esglow is linked in Page Settings.`);
+    }
+    throw new Error(reasons.join(' | '));
   }
 
   return results;
