@@ -345,14 +345,12 @@ function renderMediaPreview(post, currentSlideIndex) {
   }
 
   if (post.format === 'reel') {
-    const mediaFile = Array.isArray(post.media) ? post.media[0] : post.media;
-    // Reel preview with animated video or GIF demonstration
-    const gifSource = (post.sourceAssets?.find(a => a.endsWith('.gif')) || mediaFile) + cacheBuster;
+    const reelCover = `/generated/post_${post.id}_reel.png` + cacheBuster;
     return `
-      <div style="position: relative; width: 100%; height: 100%;">
-        <img src="/${escapeHtml(gifSource)}" alt="Reel Demo" class="media-img" style="object-fit: cover;">
-        <div style="position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">
-          ▶ Reel (9:16 Demonstration)
+      <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #180B28;">
+        <img src="${escapeHtml(reelCover)}" alt="${escapeHtml(post.title)} Reel Cover" class="media-img" style="object-fit: contain; width: 100%; height: 100%;">
+        <div style="position: absolute; top: 12px; left: 12px; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px); color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(255, 255, 255, 0.2);">
+          ▶ REEL (9:16)
         </div>
       </div>
     `;
@@ -849,8 +847,8 @@ function openMobilePreview(postId) {
     const safeIdx = Math.min(Math.max(0, curIndex), post.media.length - 1);
     mediaHtml = `<img src="${escapeHtml(post.media[safeIdx]) + cacheBuster}" alt="Carousel Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
   } else if (post.format === 'reel') {
-    const gifSource = (post.sourceAssets?.find(a => a.endsWith('.gif')) || (Array.isArray(post.media) ? post.media[0] : post.media)) + cacheBuster;
-    mediaHtml = `<img src="/${escapeHtml(gifSource)}" alt="Reel Preview" style="max-height: 420px; width: 100%; object-fit: cover;">`;
+    const reelCover = `/generated/post_${post.id}_reel.png` + cacheBuster;
+    mediaHtml = `<img src="${escapeHtml(reelCover)}" alt="Reel Preview" style="max-height: 480px; width: 100%; object-fit: contain;">`;
   } else {
     const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
     mediaHtml = `<img src="${escapeHtml(rawMedia) + cacheBuster}" alt="Static Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
@@ -918,9 +916,12 @@ function openPublishConfirmModal(postId) {
   const thumbContainer = document.getElementById('publish-preview-thumb');
   if (thumbContainer) {
     const cacheBuster = mediaCacheBusters[post.id] ? `?t=${mediaCacheBusters[post.id]}` : '';
-    const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
-    const mediaFile = rawMedia + cacheBuster;
-    thumbContainer.innerHTML = `<img src="${escapeHtml(mediaFile)}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+    let mediaFile = Array.isArray(post.media) ? post.media[0] : post.media;
+    if (post.format === 'reel' || (typeof mediaFile === 'string' && mediaFile.endsWith('.mp4'))) {
+      mediaFile = `/generated/post_${post.id}_reel.png`;
+    }
+    mediaFile += cacheBuster;
+    thumbContainer.innerHTML = `<img src="${escapeHtml(mediaFile)}" alt="Preview" style="width: 100%; height: 100%; object-fit: contain;">`;
   }
 
   const checkEl = document.getElementById('human-approval-check');

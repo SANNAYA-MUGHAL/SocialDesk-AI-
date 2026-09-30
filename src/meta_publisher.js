@@ -119,11 +119,14 @@ export async function publishPostToMeta(post, options = {}) {
   }
 
   const cfg = { ...metaConfig, ...options };
+  const baseAppUrl = (cfg.baseUrl || 'https://social-desk-ai.vercel.app').replace(/\/$/, '');
   
   // Resolve image URL (must be public absolute URL for Meta Graph API)
-  const baseAppUrl = cfg.baseUrl.replace(/\/$/, '');
   const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
-  const cleanMedia = (rawMedia || '').replace(/^\/+/, '');
+  let cleanMedia = (rawMedia || '').replace(/^\/+/, '');
+  if (cleanMedia.endsWith('.mp4')) {
+    cleanMedia = cleanMedia.replace(/\.mp4$/, '.png');
+  }
   const publicImageUrl = cleanMedia.startsWith('http') ? cleanMedia : `${baseAppUrl}/${cleanMedia}`;
 
   // If running in mock/offline mode or without live token, return verified simulated result
