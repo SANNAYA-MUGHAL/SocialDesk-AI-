@@ -238,13 +238,22 @@
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label">Post Status</label>
+            <select id="edit-status" class="form-control">
+              <option value="Draft">Draft</option>
+              <option value="Approved">Approved</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Published">Published</option>
+            </select>
+          </div>
           <div class="form-group">
             <label class="form-label">Scheduled Date</label>
             <input type="date" id="edit-date" class="form-control">
           </div>
           <div class="form-group">
-            <label class="form-label">Scheduled Time (Pakistan Standard Time / PKT)</label>
+            <label class="form-label">Scheduled Time (PKT)</label>
             <input type="time" id="edit-time" class="form-control">
           </div>
         </div>
@@ -424,18 +433,34 @@
           </ul>
         </div>
 
-        <div class="approval-checkbox-group" style="background: #FAF7FE; border: 1px solid #E9DDF5; border-radius: 12px; padding: 14px;">
+        <!-- Live Meta Connection Status Banner -->
+        <div id="publish-meta-status-banner" style="margin-bottom: 14px;"></div>
+
+        <div class="approval-checkbox-group" style="background: #FAF7FE; border: 1px solid #E9DDF5; border-radius: 12px; padding: 14px; margin-bottom: 12px;">
           <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 13px; color: #2D1B4E; font-weight: 600;">
             <input type="checkbox" id="human-approval-check" style="width: 18px; height: 18px; accent-color: #683DA9; margin-top: 2px;" checked>
-            <span>I have reviewed the creative and captions, and I authorize immediate live publishing to Girlies Glow accounts.</span>
+            <span>I have reviewed the creative and captions, and I authorize live publishing to Girlies Glow accounts.</span>
           </label>
         </div>
+
+        <!-- Simulation / Test Mode Toggle -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 12.5px;">
+          <label for="publish-mock-checkbox" style="font-weight: 600; color: #475569; cursor: pointer; margin-bottom: 0;">
+            🧪 Test Simulation Mode (Preview without publishing to real accounts)
+          </label>
+          <input type="checkbox" id="publish-mock-checkbox" style="width: 17px; height: 17px; cursor: pointer; accent-color: #683DA9;">
+        </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closePublishConfirmModal()">Cancel</button>
-        <button type="button" id="confirm-publish-btn" class="btn btn-success" style="background: linear-gradient(135deg, #059669 0%, #10B981 100%); font-weight: 700;" onclick="executeLivePublish()">
-          <span>⚡</span> CONFIRM & PUBLISH LIVE
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn btn-outline-primary" style="font-size: 12px; padding: 7px 12px;" onclick="openMetaSettingsFromPublishModal()">
+          ⚙️ Meta API Settings
         </button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="closePublishConfirmModal()">Cancel</button>
+          <button type="button" id="confirm-publish-btn" class="btn btn-success" style="background: linear-gradient(135deg, #059669 0%, #10B981 100%); font-weight: 700;" onclick="executeLivePublish()">
+            <span>⚡</span> CONFIRM &amp; PUBLISH LIVE
+          </button>
+        </div>
       </div>
     </div>
   </div>

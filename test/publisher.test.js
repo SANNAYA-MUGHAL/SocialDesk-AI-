@@ -74,3 +74,25 @@ test('Meta Publisher - allows configuration updates', () => {
   assert.equal(cfg.pageId, '61592791861631');
   assert.equal(cfg.igUserId, '1784140001');
 });
+
+test('Meta Publisher - rejects live publish when access token is missing and mockPublish is false', async () => {
+  const approvedPost = {
+    id: '1',
+    title: 'Myth Buster',
+    status: 'Approved',
+    destinations: {
+      facebookPage: 'Girlies Glow Facebook Business Page',
+      instagram: '@girli_esglow'
+    },
+    media: 'generated/post_1_static.png',
+    captionIg: 'Myth buster caption with COD Rs. 599',
+    captionFb: 'Myth buster caption with COD Rs. 599'
+  };
+
+  await assert.rejects(
+    async () => {
+      await publishPostToMeta(approvedPost, { accessToken: '', mockPublish: false });
+    },
+    /Meta Page Access Token is missing/
+  );
+});

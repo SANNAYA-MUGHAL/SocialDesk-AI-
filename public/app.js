@@ -525,6 +525,11 @@ function openEditModal(postId) {
     fbSelect.value = post.destinations?.facebookPage || 'Girlies Glow Facebook Business Page';
   }
 
+  const statusSelect = document.getElementById('edit-status');
+  if (statusSelect) {
+    statusSelect.value = post.status || 'Draft';
+  }
+
   document.getElementById('edit-ig-dest').value = post.destinations?.instagram || '@girli_esglow';
   document.getElementById('edit-date').value = post.schedule?.date || '';
   document.getElementById('edit-time').value = post.schedule?.time || '';
@@ -775,6 +780,7 @@ async function savePostEdit() {
   const updatedPayload = {
     title: document.getElementById('edit-title').value,
     angle: document.getElementById('edit-angle').value,
+    status: document.getElementById('edit-status')?.value || post.status || 'Draft',
     destinations: {
       instagram: document.getElementById('edit-ig-dest').value,
       facebookPage: document.getElementById('edit-fb-dest').value
@@ -1171,6 +1177,37 @@ function openPublishConfirmModal(postId) {
   const checkEl = document.getElementById('human-approval-check');
   if (checkEl) checkEl.checked = true;
 
+  // Check token status and populate banner
+  const localToken = localStorage.getItem('meta_page_access_token') || '';
+  const statusBanner = document.getElementById('publish-meta-status-banner');
+  const mockCheckbox = document.getElementById('publish-mock-checkbox');
+
+  if (statusBanner) {
+    if (localToken) {
+      statusBanner.innerHTML = `
+        <div style="padding: 10px 14px; border-radius: 8px; background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+          <span>🟢</span>
+          <span><strong>Meta Token Connected:</strong> Ready for real live publishing to @girli_esglow and Facebook Page!</span>
+        </div>
+      `;
+      if (mockCheckbox) mockCheckbox.checked = false;
+    } else {
+      statusBanner.innerHTML = `
+        <div style="padding: 12px 14px; border-radius: 8px; background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; font-size: 12.5px; line-height: 1.5;">
+          <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>⚠️</span> No Meta Access Token Connected
+          </div>
+          <div>Live posts cannot be sent to real accounts without a Meta Page Access Token.</div>
+          <div style="margin-top: 6px;">
+            <a href="#" onclick="event.preventDefault(); openMetaSettingsFromPublishModal();" style="color: #683DA9; font-weight: 700; text-decoration: underline;">👉 Click here to enter your Meta Token</a>
+            <span style="color: #78350F; margin: 0 4px;">or check "Test Simulation Mode" below.</span>
+          </div>
+        </div>
+      `;
+      if (mockCheckbox) mockCheckbox.checked = true;
+    }
+  }
+
   const modal = document.getElementById('publish-confirm-modal');
   if (modal) modal.style.display = 'flex';
 }
@@ -1179,6 +1216,11 @@ function closePublishConfirmModal() {
   pendingPublishPostId = null;
   const modal = document.getElementById('publish-confirm-modal');
   if (modal) modal.style.display = 'none';
+}
+
+function openMetaSettingsFromPublishModal() {
+  closePublishConfirmModal();
+  openMetaSettingsModal();
 }
 
 async function executeLivePublish() {
@@ -1190,23 +1232,45 @@ async function executeLivePublish() {
     return;
   }
 
-  const checkEl = document.getElementById('human-approval-check');
-  if (checkEl && !checkEl.checked) {
+  const approvalChecked = document.getElementById('human-approval-check')?.checked;
+  if (!approvalChecked) {
     showToast('Please check the human approval box to confirm publishing authorization.', 'error');
+    return;
+  }
+
+  const isMock = Boolean(document.getElementById('publish-mock-checkbox')?.checked);
+  const token = localStorage.getItem('meta_page_access_token') || '';
+  const pageId = localStorage.getItem('meta_page_id') || '61592791861631';
+  const igUserId = localStorage.getItem('meta_ig_user_id') || '';
+
+  if (!isMock && !token) {
+    showToast('⚠️ Meta Page Access Token is missing! Please enter your token in Meta API Settings first.', 'error');
+    openMetaSettingsFromPublishModal();
     return;
   }
 
   const confirmBtn = document.getElementById('confirm-publish-btn');
   if (confirmBtn) {
     confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<span>⏳</span> Publishing to Meta...';
+    confirmBtn.innerHTML = '<span>⏳</span> ' + (isMock ? 'Running Simulation...' : 'Publishing to Meta Live...');
   }
 
   try {
     const res = await fetch(`/api/posts/${post.id}/publish-live`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ options: {} })
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        humanApproved: true,
+        options: {
+          accessToken: token,
+          pageId,
+          igUserId,
+          mockPublish: isMock
+        }
+      })
     });
 
     const data = await res.json();
@@ -1223,8 +1287,11 @@ async function executeLivePublish() {
     updateStats();
     renderCurrentView();
 
-    const modeText = data.details?.mode === 'mock' ? ' (Simulated - Add token in Meta Settings to publish live)' : '';
-    showToast(`Post ${post.id} successfully published to Meta! 🎉${modeText}`, 'success');
+    if (data.details?.mode === 'mock') {
+      showToast(`🧪 Test Simulation: Post ${post.id} verified! (No real post sent - token required for live posting)`, 'info');
+    } else {
+      showToast(`🎉 Congratulations! Post ${post.id} is LIVE on your Instagram & Facebook!`, 'success');
+    }
   } catch (err) {
     showToast(`Publishing Error: ${err.message}`, 'error');
   } finally {
@@ -1255,19 +1322,30 @@ function toggleTokenVisibility() {
 }
 
 async function loadMetaSettings() {
+  const localToken = localStorage.getItem('meta_page_access_token') || '';
+  const localPageId = localStorage.getItem('meta_page_id') || '';
+  const localIgUserId = localStorage.getItem('meta_ig_user_id') || '';
+
+  const tokenInput = document.getElementById('meta-access-token');
+  const pageIdEl = document.getElementById('meta-page-id');
+  const igIdEl = document.getElementById('meta-ig-user-id');
+
+  if (tokenInput && localToken) tokenInput.value = localToken;
+  if (pageIdEl && localPageId) pageIdEl.value = localPageId;
+  if (igIdEl && localIgUserId) igIdEl.value = localIgUserId;
+
   try {
     const res = await fetch('/api/settings/meta');
     if (!res.ok) return;
     const cfg = await res.json();
-    const pageIdEl = document.getElementById('meta-page-id');
-    const igIdEl = document.getElementById('meta-ig-user-id');
-    if (pageIdEl && cfg.pageId) pageIdEl.value = cfg.pageId;
-    if (igIdEl && cfg.igUserId) igIdEl.value = cfg.igUserId;
+    if (pageIdEl && cfg.pageId && !localPageId) pageIdEl.value = cfg.pageId;
+    if (igIdEl && cfg.igUserId && !localIgUserId) igIdEl.value = cfg.igUserId;
 
+    const hasToken = Boolean(localToken || cfg.isConfigured);
     const statusEl = document.getElementById('meta-connection-status');
     if (statusEl) {
-      if (cfg.isConfigured) {
-        statusEl.style.display = 'block';
+      statusEl.style.display = 'block';
+      if (hasToken) {
         statusEl.style.background = '#ECFDF5';
         statusEl.style.color = '#065F46';
         statusEl.style.border = '1px solid #A7F3D0';
@@ -1277,7 +1355,7 @@ async function loadMetaSettings() {
         statusEl.style.background = '#FFFBEB';
         statusEl.style.color = '#92400E';
         statusEl.style.border = '1px solid #FDE68A';
-        statusEl.textContent = 'ℹ️ No Meta Token set yet. Live publish runs in verified safe mode until a token is entered.';
+        statusEl.textContent = '⚠️ No Meta Token set yet. Enter your Page Access Token to publish to real accounts.';
       }
     }
   } catch (err) {
@@ -1286,9 +1364,9 @@ async function loadMetaSettings() {
 }
 
 async function testMetaConnection() {
-  const token = document.getElementById('meta-access-token').value;
-  const pageId = document.getElementById('meta-page-id').value;
-  const igUserId = document.getElementById('meta-ig-user-id').value;
+  const token = document.getElementById('meta-access-token').value.trim() || localStorage.getItem('meta_page_access_token') || '';
+  const pageId = document.getElementById('meta-page-id').value.trim() || '61592791861631';
+  const igUserId = document.getElementById('meta-ig-user-id').value.trim();
 
   const statusEl = document.getElementById('meta-connection-status');
   if (!statusEl) return;
@@ -1297,6 +1375,14 @@ async function testMetaConnection() {
   statusEl.style.color = '#1D4ED8';
   statusEl.style.border = '1px solid #BFDBFE';
   statusEl.textContent = 'Testing connection with Meta Graph API...';
+
+  if (!token) {
+    statusEl.style.background = '#FEF2F2';
+    statusEl.style.color = '#991B1B';
+    statusEl.style.border = '1px solid #FECACA';
+    statusEl.textContent = '❌ Please paste your Meta Page Access Token before testing.';
+    return;
+  }
 
   try {
     const res = await fetch('/api/settings/meta/test', {
@@ -1316,8 +1402,21 @@ async function testMetaConnection() {
       statusEl.style.color = '#065F46';
       statusEl.style.border = '1px solid #A7F3D0';
       statusEl.textContent = `✅ Connected to "${data.pageName}" (Page ID: ${data.pageId}, Instagram: ${data.igUserId})!`;
-      if (data.igUserId && !igUserId) {
+
+      // Save valid credentials to localStorage
+      if (data.resolvedPageToken) {
+        document.getElementById('meta-access-token').value = data.resolvedPageToken;
+        localStorage.setItem('meta_page_access_token', data.resolvedPageToken);
+      } else {
+        localStorage.setItem('meta_page_access_token', token);
+      }
+      if (data.pageId) {
+        document.getElementById('meta-page-id').value = data.pageId;
+        localStorage.setItem('meta_page_id', data.pageId);
+      }
+      if (data.igUserId && data.igUserId !== 'Not connected yet') {
         document.getElementById('meta-ig-user-id').value = data.igUserId;
+        localStorage.setItem('meta_ig_user_id', data.igUserId);
       }
       showToast('Meta connection verified successfully!', 'success');
     }
@@ -1330,9 +1429,13 @@ async function testMetaConnection() {
 }
 
 async function saveMetaSettings() {
-  const token = document.getElementById('meta-access-token').value;
-  const pageId = document.getElementById('meta-page-id').value;
-  const igUserId = document.getElementById('meta-ig-user-id').value;
+  const token = document.getElementById('meta-access-token').value.trim();
+  const pageId = document.getElementById('meta-page-id').value.trim();
+  const igUserId = document.getElementById('meta-ig-user-id').value.trim();
+
+  if (token) localStorage.setItem('meta_page_access_token', token);
+  if (pageId) localStorage.setItem('meta_page_id', pageId);
+  if (igUserId) localStorage.setItem('meta_ig_user_id', igUserId);
 
   try {
     const res = await fetch('/api/settings/meta', {
@@ -1348,7 +1451,8 @@ async function saveMetaSettings() {
     showToast('Meta API settings saved successfully! ⚙️', 'success');
     closeMetaSettingsModal();
   } catch (err) {
-    showToast(err.message, 'error');
+    showToast('Settings saved to browser storage! ⚙️', 'success');
+    closeMetaSettingsModal();
   }
 }
 

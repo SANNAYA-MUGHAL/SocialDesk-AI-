@@ -586,7 +586,19 @@ export async function handleRequest(req, res) {
 
       const post = posts[index];
       try {
-        const publishResult = await publishPostToMeta(post, body?.options || {});
+        const publishOptions = {
+          ...(body?.options || {})
+        };
+        if (body?.accessToken && !publishOptions.accessToken) {
+          publishOptions.accessToken = body.accessToken;
+        }
+        if (!publishOptions.accessToken && req.headers && req.headers['authorization']) {
+          const auth = req.headers['authorization'];
+          if (auth.startsWith('Bearer ')) {
+            publishOptions.accessToken = auth.slice(7).trim();
+          }
+        }
+        const publishResult = await publishPostToMeta(post, publishOptions);
         post.status = 'Published';
         post.publishedAt = publishResult.publishedAt;
         post.metaPublishDetails = {

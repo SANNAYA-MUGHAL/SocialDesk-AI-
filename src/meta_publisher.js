@@ -1,11 +1,47 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { validateDestinations } from './validator.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.resolve(__dirname, '..');
+const SETTINGS_FILE = path.join(ROOT_DIR, 'data', 'meta_settings.json');
+const TMP_SETTINGS_FILE = path.join('/tmp', 'meta_settings.json');
+
+function loadPersistedMetaConfig() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    }
+  } catch {}
+  try {
+    if (fs.existsSync(TMP_SETTINGS_FILE)) {
+      return JSON.parse(fs.readFileSync(TMP_SETTINGS_FILE, 'utf8'));
+    }
+  } catch {}
+  return {};
+}
+
+function savePersistedMetaConfig(cfg) {
+  const data = JSON.stringify(cfg, null, 2);
+  try {
+    fs.writeFileSync(SETTINGS_FILE, data, 'utf8');
+    return;
+  } catch {}
+  try {
+    fs.writeFileSync(TMP_SETTINGS_FILE, data, 'utf8');
+  } catch {}
+}
+
+const savedDiskConfig = loadPersistedMetaConfig();
 
 // Configuration storage for Meta credentials
 let metaConfig = {
-  accessToken: process.env.META_PAGE_ACCESS_TOKEN || '',
-  pageId: process.env.META_PAGE_ID || '61592791861631',
-  igUserId: process.env.META_IG_USER_ID || '',
-  baseUrl: process.env.APP_BASE_URL || 'https://social-desk-ai.vercel.app'
+  accessToken: process.env.META_PAGE_ACCESS_TOKEN || savedDiskConfig.accessToken || '',
+  pageId: process.env.META_PAGE_ID || savedDiskConfig.pageId || '61592791861631',
+  igUserId: process.env.META_IG_USER_ID || savedDiskConfig.igUserId || '',
+  baseUrl: process.env.APP_BASE_URL || savedDiskConfig.baseUrl || 'https://social-desk-ai.vercel.app'
 };
 
 export function getMetaConfig() {
@@ -22,6 +58,7 @@ export function updateMetaConfig(newConfig = {}) {
     ...metaConfig,
     ...newConfig
   };
+  savePersistedMetaConfig(metaConfig);
   return getMetaConfig();
 }
 
@@ -129,8 +166,8 @@ export async function publishPostToMeta(post, options = {}) {
   }
   const publicImageUrl = cleanMedia.startsWith('http') ? cleanMedia : `${baseAppUrl}/${cleanMedia}`;
 
-  // If running in mock/offline mode or without live token, return verified simulated result
-  if (!cfg.accessToken || cfg.mockPublish) {
+  // If running in explicit mock/test mode
+  if (cfg.mockPublish) {
     const mockFbId = `fb_live_${post.id}_${Date.now()}`;
     const mockIgId = `ig_live_${post.id}_${Date.now()}`;
     return {
@@ -150,6 +187,11 @@ export async function publishPostToMeta(post, options = {}) {
         url: 'https://www.instagram.com/girli_esglow/'
       }
     };
+  }
+
+  // If live publishing was requested but no token is provided
+  if (!cfg.accessToken) {
+    throw new Error('Meta Page Access Token is missing. Please enter your Meta Page Access Token in "⚙️ Meta API Settings" at the top right before publishing live.');
   }
 
   // Live Meta Graph API Calls

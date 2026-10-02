@@ -289,6 +289,14 @@ test('POST /api/posts/:id/publish-live enforces human approval and destination s
   assert.equal(pubBody.post.status, 'Published');
   assert.ok(pubBody.details.facebook.postId);
   assert.ok(pubBody.details.instagram.mediaId);
+
+  // 3. Attempt publish live without token and without mock - should fail with HTTP 400
+  const noTokenRes = await simulateRequest('POST', '/api/posts/1/publish-live', {
+    options: { mockPublish: false, accessToken: '' }
+  });
+  assert.equal(noTokenRes.status, 400);
+  const noTokenBody = await noTokenRes.json();
+  assert.ok(noTokenBody.error.includes('Meta Page Access Token is missing'));
 });
 
 test('POST /api/posts/:id/upload-media uploads custom media and updates post', async () => {
