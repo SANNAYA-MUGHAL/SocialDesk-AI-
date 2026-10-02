@@ -6,6 +6,9 @@ let filterStatus = 'all';
 const platformTabState = {}; // postId -> 'ig' | 'fb'
 const carouselIndexState = {}; // postId -> current slide index
 const mediaCacheBusters = {}; // postId -> timestamp for cache busting
+let currentEditPostId = null;
+let currentEditSlideIndex = 0;
+let currentQuickUploadPostId = null;
 
 // Helper to look up a post by string ID, numeric ID, or postNumber
 function findPost(postId) {
@@ -48,6 +51,14 @@ if (typeof window !== 'undefined') {
   window.handleApproveAll = handleApproveAll;
   window.handleScheduleAll = handleScheduleAll;
   window.exportData = exportData;
+  window.selectEditSlide = selectEditSlide;
+  window.triggerFileInput = triggerFileInput;
+  window.handleDragOver = handleDragOver;
+  window.handleDragLeave = handleDragLeave;
+  window.handleFileDrop = handleFileDrop;
+  window.handleFileSelected = handleFileSelected;
+  window.resetCurrentPostMedia = resetCurrentPostMedia;
+  window.quickUploadForPost = quickUploadForPost;
   window.setFormatFilter = setFormatFilter;
   window.setStatusFilter = setStatusFilter;
   window.copyCaption = copyCaption;
@@ -239,6 +250,11 @@ function renderGrid() {
 
       <div class="media-preview-container ${post.format === 'reel' ? 'media-aspect-9-16' : 'media-aspect-4-5'}">
         ${mediaHtml}
+        <div class="card-media-change-overlay">
+          <button type="button" class="btn-change-media-quick" onclick="quickUploadForPost('${post.id}')" title="Upload custom photo or video from device">
+            <span>📷</span> Change Media
+          </button>
+        </div>
       </div>
 
       <div class="card-quick-tools">
@@ -246,6 +262,9 @@ function renderGrid() {
           <span>📱</span> IG Phone Preview
         </button>
         <div style="display: flex; gap: 6px;">
+          <button type="button" class="quick-tool-btn" onclick="quickUploadForPost('${post.id}')" title="Upload custom photo or video from device">
+            <span>📤</span> Upload
+          </button>
           <button type="button" class="quick-tool-btn" onclick="copyCaption('${post.id}')" title="Copy current preview caption">
             <span>📋</span> Copy Caption
           </button>
@@ -493,6 +512,9 @@ function openEditModal(postId) {
     return;
   }
 
+  currentEditPostId = post.id;
+  currentEditSlideIndex = 0;
+
   document.getElementById('edit-post-id').value = post.id;
   document.getElementById('modal-title').textContent = `Edit Post ${post.postNumber || post.id} — ${post.title}`;
   document.getElementById('edit-title').value = post.title || '';
@@ -511,10 +533,227 @@ function openEditModal(postId) {
   document.getElementById('edit-hashtags').value = Array.isArray(post.hashtags) ? post.hashtags.join(' ') : (post.hashtags || '');
 
   updateCharCounters();
+  updateModalMediaPreview(post, currentEditSlideIndex);
 
   const modal = document.getElementById('edit-modal');
   if (modal) {
     modal.style.display = 'flex';
+  }
+}
+
+function updateModalMediaPreview(post, slideIdx = 0) {
+  const previewWrap = document.getElementById('edit-media-preview-wrap');
+  const customBadge = document.getElementById('custom-media-badge');
+  const resetBtn = document.getElementById('btn-reset-media');
+  const carouselGroup = document.getElementById('carousel-slide-selector-group');
+  const carouselPills = document.getElementById('carousel-slide-pills');
+  const statusEl = document.getElementById('upload-status');
+  if (statusEl) statusEl.style.display = 'none';
+
+  if (customBadge) customBadge.style.display = post.isCustomMedia ? 'inline-block' : 'none';
+  if (resetBtn) resetBtn.style.display = post.isCustomMedia ? 'inline-block' : 'none';
+
+  const cacheBuster = mediaCacheBusters[post.id] ? `?t=${mediaCacheBusters[post.id]}` : '';
+
+  // Setup carousel slide pills if format === 'carousel'
+  if (post.format === 'carousel' && Array.isArray(post.media)) {
+    if (carouselGroup) carouselGroup.style.display = 'block';
+    if (carouselPills) {
+      carouselPills.innerHTML = post.media.map((_, i) => `
+        <button type="button" class="slide-pill-btn ${i === slideIdx ? 'active' : ''}" onclick="selectEditSlide(${i})">
+          Slide ${i + 1}
+        </button>
+      `).join('');
+    }
+
+    const safeIdx = Math.min(Math.max(0, slideIdx), post.media.length - 1);
+    const mediaSrc = post.media[safeIdx] + cacheBuster;
+    if (previewWrap) {
+      previewWrap.innerHTML = `<img src="${escapeHtml(mediaSrc)}" alt="Slide ${safeIdx + 1}" style="width: 100%; height: 100%; object-fit: cover;">`;
+    }
+    return;
+  }
+
+  if (carouselGroup) carouselGroup.style.display = 'none';
+
+  // Reel preview
+  if (post.format === 'reel') {
+    const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_reel.png`);
+    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4');
+    if (previewWrap) {
+      if (isVideo) {
+        previewWrap.innerHTML = `
+          <video src="${escapeHtml(rawMedia + cacheBuster)}" controls muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+        `;
+      } else {
+        previewWrap.innerHTML = `
+          <img src="${escapeHtml(rawMedia + cacheBuster)}" alt="Reel Cover" style="width: 100%; height: 100%; object-fit: cover;">
+        `;
+      }
+    }
+    return;
+  }
+
+  // Static preview
+  const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_static.png`);
+  if (previewWrap) {
+    previewWrap.innerHTML = `
+      <img src="${escapeHtml(rawMedia + cacheBuster)}" alt="${escapeHtml(post.title)}" style="width: 100%; height: 100%; object-fit: cover;">
+    `;
+  }
+}
+
+function selectEditSlide(slideIndex) {
+  currentEditSlideIndex = slideIndex;
+  const post = findPost(currentEditPostId);
+  if (post) updateModalMediaPreview(post, currentEditSlideIndex);
+}
+
+function triggerFileInput() {
+  const input = document.getElementById('media-file-input');
+  if (input) input.click();
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const dropzone = document.getElementById('media-dropzone');
+  if (dropzone) dropzone.classList.add('drag-active');
+}
+
+function handleDragLeave(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const dropzone = document.getElementById('media-dropzone');
+  if (dropzone) dropzone.classList.remove('drag-active');
+}
+
+function handleFileDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const dropzone = document.getElementById('media-dropzone');
+  if (dropzone) dropzone.classList.remove('drag-active');
+
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+    uploadSelectedFile(e.dataTransfer.files[0], currentEditPostId, currentEditSlideIndex);
+  }
+}
+
+function handleFileSelected(e) {
+  if (e.target.files && e.target.files[0]) {
+    uploadSelectedFile(e.target.files[0], currentEditPostId, currentEditSlideIndex);
+    e.target.value = '';
+  }
+}
+
+async function uploadSelectedFile(file, postId, slideIndex = 0) {
+  const post = findPost(postId);
+  if (!post) {
+    showToast('Post not found', 'error');
+    return;
+  }
+
+  // Validate size (max 50MB)
+  if (file.size > 50 * 1024 * 1024) {
+    showToast('File too large. Maximum size is 50MB.', 'error');
+    return;
+  }
+
+  const statusEl = document.getElementById('upload-status');
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.style.color = '#683DA9';
+    statusEl.textContent = `⏳ Uploading ${file.name}...`;
+  }
+
+  try {
+    const base64Data = await readFileAsBase64(file);
+    const res = await fetch(`/api/posts/${post.id}/upload-media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: file.name,
+        data: base64Data,
+        slideIndex: post.format === 'carousel' ? slideIndex : undefined
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload media');
+    }
+
+    const result = await res.json();
+    const idx = findPostIndex(post.id);
+    if (idx !== -1 && result.post) {
+      posts[idx] = result.post;
+    }
+
+    mediaCacheBusters[post.id] = Date.now();
+    updateModalMediaPreview(posts[idx], slideIndex);
+    renderCurrentView();
+
+    if (statusEl) {
+      statusEl.style.color = '#15803D';
+      statusEl.textContent = `✓ Uploaded successfully!`;
+    }
+
+    showToast(`Media updated successfully for Post ${post.id}`, 'success');
+  } catch (err) {
+    if (statusEl) {
+      statusEl.style.color = '#DC2626';
+      statusEl.textContent = `✕ Upload failed: ${err.message}`;
+    }
+    showToast(err.message, 'error');
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function resetCurrentPostMedia() {
+  const post = findPost(currentEditPostId);
+  if (!post) return;
+
+  try {
+    const res = await fetch(`/api/posts/${post.id}/reset-media`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to reset media');
+    }
+
+    const result = await res.json();
+    const idx = findPostIndex(post.id);
+    if (idx !== -1 && result.post) {
+      posts[idx] = result.post;
+    }
+
+    mediaCacheBusters[post.id] = Date.now();
+    updateModalMediaPreview(posts[idx], currentEditSlideIndex);
+    renderCurrentView();
+    showToast(`Media reset to generated default for Post ${post.id}`, 'info');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function quickUploadForPost(postId) {
+  currentQuickUploadPostId = postId;
+  const input = document.getElementById('global-quick-media-input');
+  if (input) {
+    input.onchange = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        uploadSelectedFile(e.target.files[0], currentQuickUploadPostId, 0);
+        e.target.value = '';
+      }
+    };
+    input.click();
   }
 }
 
@@ -847,8 +1086,13 @@ function openMobilePreview(postId) {
     const safeIdx = Math.min(Math.max(0, curIndex), post.media.length - 1);
     mediaHtml = `<img src="${escapeHtml(post.media[safeIdx]) + cacheBuster}" alt="Carousel Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
   } else if (post.format === 'reel') {
-    const reelCover = `/generated/post_${post.id}_reel.png` + cacheBuster;
-    mediaHtml = `<img src="${escapeHtml(reelCover)}" alt="Reel Preview" style="max-height: 480px; width: 100%; object-fit: contain;">`;
+    const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_reel.png`);
+    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4');
+    if (isVideo) {
+      mediaHtml = `<video src="${escapeHtml(rawMedia) + cacheBuster}" controls autoplay muted loop style="max-height: 480px; width: 100%; object-fit: contain;"></video>`;
+    } else {
+      mediaHtml = `<img src="${escapeHtml(rawMedia) + cacheBuster}" alt="Reel Preview" style="max-height: 480px; width: 100%; object-fit: contain;">`;
+    }
   } else {
     const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
     mediaHtml = `<img src="${escapeHtml(rawMedia) + cacheBuster}" alt="Static Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;

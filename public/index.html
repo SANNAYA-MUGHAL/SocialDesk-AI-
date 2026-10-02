@@ -171,6 +171,45 @@
       <div class="modal-body">
         <input type="hidden" id="edit-post-id">
 
+        <!-- Media Creative & Upload Section -->
+        <div id="media-upload-section" class="form-group media-upload-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #2D1B4E;">Media Creative &amp; Visual</label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="custom-media-badge" class="badge-custom-media" style="display: none;">Custom Device Media</span>
+              <button type="button" id="btn-reset-media" class="btn-subtle-reset" onclick="resetCurrentPostMedia()" style="display: none;" title="Reset back to original generated creative">
+                ↺ Reset to Generated
+              </button>
+            </div>
+          </div>
+
+          <div class="media-upload-container">
+            <!-- Left Thumbnail Preview -->
+            <div class="media-preview-box">
+              <div id="edit-media-preview-wrap" class="edit-media-preview-wrap">
+                <!-- Preview injected dynamically -->
+              </div>
+            </div>
+
+            <!-- Right Upload Controls & Dropzone -->
+            <div class="media-upload-controls">
+              <!-- Carousel Target Selector -->
+              <div id="carousel-slide-selector-group" class="carousel-slide-group" style="display: none; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 700; color: #5E389D; text-transform: uppercase;">Target Slide To Replace:</span>
+                <div id="carousel-slide-pills" class="carousel-slide-pills"></div>
+              </div>
+
+              <div id="media-dropzone" class="media-dropzone" onclick="triggerFileInput()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
+                <input type="file" id="media-file-input" style="display: none;" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime" onchange="handleFileSelected(event)">
+                <div class="dropzone-icon">📤</div>
+                <div class="dropzone-title">Upload Image or Video from Device</div>
+                <div class="dropzone-hint">Click or drag &amp; drop to replace (PNG, JPG, MP4 reel up to 50MB)</div>
+              </div>
+              <div id="upload-status" class="upload-status" style="display: none; font-size: 12px; margin-top: 6px; font-weight: 600;"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="form-group">
           <label class="form-label">Post Title</label>
           <input type="text" id="edit-title" class="form-control">
@@ -403,6 +442,9 @@
 
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
+
+  <!-- Global Quick Media Input (Card click upload) -->
+  <input type="file" id="global-quick-media-input" style="display: none;" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime">
 
   <script src="/app.js"></script>
 </body>

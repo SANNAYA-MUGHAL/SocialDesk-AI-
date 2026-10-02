@@ -98,7 +98,7 @@ function parseJsonBody(req) {
     let raw = '';
     req.on('data', chunk => {
       raw += chunk;
-      if (raw.length > 5 * 1024 * 1024) {
+      if (raw.length > 50 * 1024 * 1024) {
         req.destroy();
         reject(new Error('Payload too large'));
       }
@@ -392,6 +392,136 @@ export async function handleRequest(req, res) {
           error: `Failed to regenerate media: ${err.message}`
         });
       }
+    }
+
+    // POST /api/posts/:id/upload-media (User custom media upload from device)
+    const uploadMatch = pathname.match(/^\/api\/posts\/([^/]+)\/upload-media$/);
+    if (method === 'POST' && uploadMatch) {
+      const id = uploadMatch[1];
+      const posts = getPosts();
+      const index = posts.findIndex(p => String(p.id) === String(id) || String(p.postNumber) === String(id));
+      if (index === -1) {
+        return sendJson(res, 404, { error: 'Post not found' });
+      }
+
+      let body;
+      try {
+        body = await parseJsonBody(req);
+      } catch {
+        return sendJson(res, 400, { error: 'Invalid JSON payload or payload too large' });
+      }
+
+      if (!body || !body.data) {
+        return sendJson(res, 400, { error: 'No media data provided' });
+      }
+
+      const post = posts[index];
+      const uploadsDir = path.join(PUBLIC_DIR, 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      let ext = 'png';
+      let base64Content = body.data;
+      if (typeof body.data === 'string' && body.data.startsWith('data:')) {
+        const matches = body.data.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          const mime = matches[1].toLowerCase();
+          base64Content = matches[2];
+          if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+          else if (mime.includes('png')) ext = 'png';
+          else if (mime.includes('webp')) ext = 'webp';
+          else if (mime.includes('gif')) ext = 'gif';
+          else if (mime.includes('mp4')) ext = 'mp4';
+          else if (mime.includes('quicktime') || mime.includes('mov')) ext = 'mp4';
+        }
+      } else if (body.filename) {
+        const candidateExt = path.extname(body.filename).replace('.', '').toLowerCase();
+        if (candidateExt) ext = candidateExt;
+      }
+
+      const safeFilename = `post_${post.id}_custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+      const targetFilePath = path.join(uploadsDir, safeFilename);
+      const fileBuffer = Buffer.from(base64Content, 'base64');
+      fs.writeFileSync(targetFilePath, fileBuffer);
+
+      const publicUrl = `/uploads/${safeFilename}`;
+
+      if (!post.originalMedia) {
+        post.originalMedia = Array.isArray(post.media) ? [...post.media] : post.media;
+      }
+
+      if (post.format === 'carousel' && Array.isArray(post.media)) {
+        const slideIdx = typeof body.slideIndex === 'number' ? body.slideIndex : 0;
+        const updated = [...post.media];
+        if (slideIdx >= 0 && slideIdx < updated.length) {
+          updated[slideIdx] = publicUrl;
+        } else {
+          updated.push(publicUrl);
+        }
+        post.media = updated;
+      } else {
+        post.media = publicUrl;
+      }
+
+      post.isCustomMedia = true;
+      post.lastMediaUpload = new Date().toISOString();
+      posts[index] = post;
+      savePosts(posts);
+
+      return sendJson(res, 200, {
+        success: true,
+        message: 'Media uploaded successfully',
+        mediaUrl: publicUrl,
+        post
+      });
+    }
+
+    // POST /api/posts/:id/reset-media (Revert to original generated media)
+    const resetMatch = pathname.match(/^\/api\/posts\/([^/]+)\/reset-media$/);
+    if (method === 'POST' && resetMatch) {
+      const id = resetMatch[1];
+      const posts = getPosts();
+      const index = posts.findIndex(p => String(p.id) === String(id) || String(p.postNumber) === String(id));
+      if (index === -1) {
+        return sendJson(res, 404, { error: 'Post not found' });
+      }
+
+      const post = posts[index];
+      function getDefaultMedia(pId, pFormat) {
+        const idStr = String(pId);
+        if (idStr === '3') {
+          return [
+            '/generated/post_3_slide_1.png',
+            '/generated/post_3_slide_2.png',
+            '/generated/post_3_slide_3.png',
+            '/generated/post_3_slide_4.png'
+          ];
+        }
+        if (idStr === '8') {
+          return [
+            '/generated/post_8_slide_1.png',
+            '/generated/post_8_slide_2.png',
+            '/generated/post_8_slide_3.png',
+            '/generated/post_8_slide_4.png',
+            '/generated/post_8_slide_5.png'
+          ];
+        }
+        if (idStr === '10') return '/generated/post_10_offer.png';
+        if (pFormat === 'reel') return `/generated/post_${idStr}_reel.mp4`;
+        return `/generated/post_${idStr}_static.png`;
+      }
+
+      post.media = post.originalMedia || getDefaultMedia(post.id, post.format);
+      post.isCustomMedia = false;
+      posts[index] = post;
+      savePosts(posts);
+
+      return sendJson(res, 200, {
+        success: true,
+        message: 'Media reset to default',
+        post
+      });
     }
 
     // 7. POST /api/posts/:id/approve

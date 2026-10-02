@@ -291,3 +291,54 @@ test('POST /api/posts/:id/publish-live enforces human approval and destination s
   assert.ok(pubBody.details.instagram.mediaId);
 });
 
+test('POST /api/posts/:id/upload-media uploads custom media and updates post', async () => {
+  // 1x1 transparent PNG base64
+  const tinyPngBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+  // 1. Upload for static post 1
+  const uploadRes = await simulateRequest('POST', '/api/posts/1/upload-media', {
+    filename: 'custom-photo.png',
+    data: tinyPngBase64
+  });
+
+  assert.equal(uploadRes.status, 200);
+  const uploadBody = await uploadRes.json();
+  assert.equal(uploadBody.success, true);
+  assert.ok(uploadBody.mediaUrl.startsWith('/uploads/'));
+  assert.equal(uploadBody.post.isCustomMedia, true);
+  assert.equal(uploadBody.post.media, uploadBody.mediaUrl);
+
+  // Verify file was written to disk in public/uploads
+  const savedPath = path.join(ROOT_DIR, 'public', uploadBody.mediaUrl.replace(/^\//, ''));
+  assert.ok(fs.existsSync(savedPath));
+  assert.ok(fs.statSync(savedPath).size > 0);
+
+  // 2. Upload for specific slide in carousel post 3
+  const carouselRes = await simulateRequest('POST', '/api/posts/3/upload-media', {
+    filename: 'custom-slide-2.png',
+    data: tinyPngBase64,
+    slideIndex: 1
+  });
+
+  assert.equal(carouselRes.status, 200);
+  const carouselBody = await carouselRes.json();
+  assert.equal(carouselBody.success, true);
+  assert.ok(Array.isArray(carouselBody.post.media));
+  assert.equal(carouselBody.post.media[1], carouselBody.mediaUrl);
+  // Verify other slides are preserved
+  assert.notEqual(carouselBody.post.media[0], carouselBody.mediaUrl);
+
+  // 3. Reset post 1 back to original generated media
+  const resetRes = await simulateRequest('POST', '/api/posts/1/reset-media');
+  assert.equal(resetRes.status, 200);
+  const resetBody = await resetRes.json();
+  assert.equal(resetBody.success, true);
+  assert.equal(resetBody.post.isCustomMedia, false);
+  assert.equal(resetBody.post.media, '/generated/post_1_static.png');
+
+  // Clean up test upload files
+  const carouselSavedPath = path.join(ROOT_DIR, 'public', carouselBody.mediaUrl.replace(/^\//, ''));
+  try { if (fs.existsSync(savedPath)) fs.unlinkSync(savedPath); } catch {}
+  try { if (fs.existsSync(carouselSavedPath)) fs.unlinkSync(carouselSavedPath); } catch {}
+});
+
