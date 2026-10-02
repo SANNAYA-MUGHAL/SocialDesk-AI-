@@ -80,6 +80,10 @@ function getSvgDefs() {
         <stop offset="0%" stop-color="#2E7D32"/>
         <stop offset="100%" stop-color="#388E3C"/>
       </linearGradient>
+      <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#DC2626"/>
+        <stop offset="100%" stop-color="#B91C1C"/>
+      </linearGradient>
       <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="${BRAND.purple}"/>
         <stop offset="100%" stop-color="${BRAND.lightOrchid}"/>
@@ -98,7 +102,7 @@ function getSvgDefs() {
   `;
 }
 
-// Clean Editorial Category Badge (No tiny logo clutter at top)
+// Clean Editorial Category Badge (Top)
 function drawTopBadge(categoryText = 'DERMAPLANING 101', y = 52) {
   return `
     <g transform="translate(60, ${y})">
@@ -118,36 +122,13 @@ function drawTopBadgeReel(categoryText = 'HOW TO DERMAPLANE ✨', y = 70) {
   `;
 }
 
-// High-Contrast Vector Badges for Myth vs Truth
-function drawMythBadge(x = 25, y = 20) {
-  return `
-    <g transform="translate(${x}, ${y})">
-      <rect width="170" height="38" rx="19" fill="#DC2626"/>
-      <circle cx="24" cy="19" r="12" fill="#FFFFFF"/>
-      <path d="M19 14 L29 24 M29 14 L19 24" stroke="#DC2626" stroke-width="3" stroke-linecap="round"/>
-      <text x="100" y="25" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#FFFFFF" text-anchor="middle" letter-spacing="1.2">THE MYTH</text>
-    </g>
-  `;
-}
-
-function drawTruthBadge(x = 25, y = 20) {
-  return `
-    <g transform="translate(${x}, ${y})">
-      <rect width="180" height="38" rx="19" fill="#16A34A"/>
-      <circle cx="24" cy="19" r="12" fill="#FFFFFF"/>
-      <path d="M18 19 L22 23 L30 15" fill="none" stroke="#16A34A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="105" y="25" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#FFFFFF" text-anchor="middle" letter-spacing="1.2">THE TRUTH</text>
-    </g>
-  `;
-}
-
 // Bottom Conversion & Pricing Bar (Rs. 599 + COD Across Pakistan)
 function drawBottomPricingBar(y = 1225) {
   return `
     <g transform="translate(60, ${y})" filter="url(#softShadow)">
       <rect width="960" height="85" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-      <text x="35" y="38" font-family="${FONT.sans}" font-weight="800" font-size="23" fill="${BRAND.deepPlum}">Girlies Glow At-Home Facial Razor</text>
-      <text x="35" y="65" font-family="${FONT.sans}" font-weight="600" font-size="16" fill="${BRAND.mutedText}">Eco Wheat-Straw Handle (White) • Stainless Micro-Guard Blade</text>
+      <text x="35" y="38" font-family="${FONT.sans}" font-weight="800" font-size="23" fill="${BRAND.deepPlum}">Girlies Glow At-Home Facial Razor (White)</text>
+      <text x="35" y="65" font-family="${FONT.sans}" font-weight="600" font-size="16" fill="${BRAND.mutedText}">🌾 Eco Wheat-Straw Body • Stainless Micro-Guard Safety</text>
 
       <g transform="translate(540, 15)">
         <rect width="385" height="55" rx="20" fill="url(#greenGrad)"/>
@@ -174,68 +155,155 @@ function drawGoldStars(x, y, size = 26, gap = 34) {
 // ==========================================
 
 // Post 1: Myth Buster (Static 4:5, 1080x1350)
+// High-CTR Visual Contrast: Thick Hair + Big ❌ Cross vs Real Dermaplaning + Big ✓ Checkmark
 export function renderPost1(outputPath = path.join(GENERATED_DIR, 'post_1_static.png')) {
-  // Use authentic WHITE wheat-straw razor photography under running water
-  const photoB64 = getAssetBase64('packaging section two.png');
+  // Use authentic WHITE wheat-straw razor dermaplaning peach fuzz on skin
+  const photoB64 = getAssetBase64('Card 1.png');
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p1Clip">
-          <rect x="60" y="240" width="960" height="510" rx="28" ry="28"/>
+        <linearGradient id="skinGradLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#FEE2E2"/>
+          <stop offset="50%" stop-color="#FED7AA"/>
+          <stop offset="100%" stop-color="#FDBA74"/>
+        </linearGradient>
+        <clipPath id="leftCardClip">
+          <rect x="60" y="250" width="465" height="880" rx="32" ry="32"/>
+        </clipPath>
+        <clipPath id="rightCardClip">
+          <rect x="555" y="250" width="465" height="880" rx="32" ry="32"/>
         </clipPath>
       </defs>
 
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
-      ${drawTopBadge('DERMAPLANING MYTHS', 52)}
 
-      <!-- Bold, Ultra-Readable Modern Headline -->
-      <text x="60" y="150" font-family="${FONT.sans}" font-weight="900" font-size="46" fill="${BRAND.deepPlum}">Will Shaving Make Facial Hair</text>
-      <text x="60" y="205" font-family="${FONT.sans}" font-weight="900" font-size="46" fill="${BRAND.purple}">Grow Back Thicker? ✨</text>
+      <!-- Top Category Badge -->
+      <g transform="translate(60, 50)">
+        <rect width="310" height="44" rx="22" fill="#FAF5FF" stroke="${BRAND.purple}" stroke-width="1.5"/>
+        <text x="155" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle" letter-spacing="1.5">✨ THE #1 SHAVING MYTH</text>
+      </g>
 
-      <!-- Real Macro Studio Asset: White Wheat-Straw Razor -->
+      <!-- High-Impact Editorial Hook Headline -->
+      <text x="60" y="150" font-family="${FONT.sans}" font-weight="900" font-size="52" fill="${BRAND.deepPlum}">Will It Grow Back Thicker?</text>
+      <text x="60" y="210" font-family="${FONT.sans}" font-weight="900" font-size="48" fill="#DC2626">NO GIRL, THAT’S A MYTH ❌</text>
+
+      <!-- ================= LEFT CARD: THE FEAR (THICK HAIR + BIG RED CROSS) ================= -->
       <g filter="url(#softShadow)">
-        <g clip-path="url(#p1Clip)">
-          <image href="${photoB64}" x="60" y="170" width="960" height="660" preserveAspectRatio="xMidYMid slice"/>
+        <rect x="60" y="250" width="465" height="880" rx="32" ry="32" fill="#FFF5F5" stroke="#FCA5A5" stroke-width="2"/>
+
+        <g clip-path="url(#leftCardClip)">
+          <!-- Simulated Skin Micro-Zoom Background -->
+          <rect x="60" y="320" width="465" height="520" fill="url(#skinGradLeft)"/>
+          
+          <!-- Skin pore texture dots -->
+          <g opacity="0.3" fill="#9A3412">
+            <circle cx="120" cy="420" r="8"/><circle cx="180" cy="380" r="6"/><circle cx="250" cy="450" r="9"/>
+            <circle cx="320" cy="400" r="7"/><circle cx="390" cy="460" r="8"/><circle cx="440" cy="390" r="6"/>
+            <circle cx="140" cy="520" r="7"/><circle cx="210" cy="580" r="9"/><circle cx="280" cy="510" r="8"/>
+            <circle cx="350" cy="570" r="7"/><circle cx="420" cy="530" r="8"/><circle cx="170" cy="660" r="8"/>
+            <circle cx="260" cy="680" r="7"/><circle cx="340" cy="650" r="9"/><circle cx="410" cy="690" r="7"/>
+            <circle cx="130" cy="750" r="8"/><circle cx="220" cy="780" r="7"/><circle cx="310" cy="740" r="9"/>
+            <circle cx="390" cy="770" r="8"/><circle cx="450" cy="730" r="6"/>
+          </g>
+
+          <!-- Coarse, Thick, Dark Stubble Hair Fibers (Blunt Tops) -->
+          <g stroke="#09090B" stroke-linecap="round" opacity="0.95">
+            <line x1="120" y1="420" x2="105" y2="330" stroke-width="14"/>
+            <line x1="180" y1="380" x2="170" y2="280" stroke-width="16"/>
+            <line x1="250" y1="450" x2="235" y2="340" stroke-width="17"/>
+            <line x1="320" y1="400" x2="340" y2="300" stroke-width="15"/>
+            <line x1="390" y1="460" x2="410" y2="360" stroke-width="16"/>
+            <line x1="440" y1="390" x2="460" y2="300" stroke-width="13"/>
+
+            <line x1="140" y1="520" x2="120" y2="420" stroke-width="15"/>
+            <line x1="210" y1="580" x2="195" y2="470" stroke-width="18"/>
+            <line x1="280" y1="510" x2="270" y2="400" stroke-width="17"/>
+            <line x1="350" y1="570" x2="370" y2="460" stroke-width="16"/>
+            <line x1="420" y1="530" x2="440" y2="430" stroke-width="15"/>
+
+            <line x1="170" y1="660" x2="150" y2="550" stroke-width="16"/>
+            <line x1="260" y1="680" x2="245" y2="560" stroke-width="18"/>
+            <line x1="340" y1="650" x2="360" y2="540" stroke-width="17"/>
+            <line x1="410" y1="690" x2="430" y2="580" stroke-width="14"/>
+
+            <line x1="130" y1="750" x2="115" y2="650" stroke-width="15"/>
+            <line x1="220" y1="780" x2="205" y2="670" stroke-width="17"/>
+            <line x1="310" y1="740" x2="325" y2="630" stroke-width="16"/>
+            <line x1="390" y1="770" x2="415" y2="660" stroke-width="15"/>
+          </g>
+
+          <!-- Dark Vignette Overlay -->
+          <rect x="60" y="320" width="465" height="520" fill="rgba(0,0,0,0.18)"/>
+
+          <!-- ================= THE BIG RED CROSS OVER THICK HAIR ================= -->
+          <g transform="translate(292, 570)">
+            <circle cx="0" cy="0" r="115" fill="rgba(220, 38, 38, 0.92)" stroke="#FFFFFF" stroke-width="6" filter="url(#softShadow)"/>
+            <line x1="-55" y1="-55" x2="55" y2="55" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+            <line x1="55" y1="-55" x2="-55" y2="55" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+          </g>
         </g>
-        <rect x="60" y="240" width="960" height="510" rx="28" ry="28" fill="none" stroke="rgba(104, 61, 169, 0.15)" stroke-width="2"/>
-      </g>
 
-      <!-- Floating Badges on Photo -->
-      <g transform="translate(90, 270)">
-        <rect width="320" height="44" rx="22" fill="rgba(255, 255, 255, 0.96)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
-        <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🌾 AUTHENTIC WHITE RAZOR</text>
-      </g>
-
-      <g transform="translate(680, 685)">
-        <rect width="310" height="44" rx="22" fill="rgba(31, 16, 48, 0.88)"/>
-        <text x="155" y="28" font-family="${FONT.sans}" font-weight="700" font-size="14" fill="#FFFFFF" text-anchor="middle">🛡️ Stainless Micro-Guard Safety</text>
-      </g>
-
-      <!-- Myth vs Fact Floating Card -->
-      <g transform="translate(60, 775)" filter="url(#softShadow)">
-        <rect width="960" height="425" rx="28" fill="#FFFFFF" stroke="${BRAND.borderLight}" stroke-width="2"/>
-
-        <!-- Myth Box -->
-        <g transform="translate(35, 25)">
-          <rect width="890" height="170" rx="20" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
-          ${drawMythBadge(25, 20)}
-          <text x="25" y="95" font-family="${FONT.sans}" font-weight="800" font-size="23" fill="#991B1B">“Shaving causes hair to grow back thicker, darker &amp; coarser.”</text>
-          <text x="25" y="132" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Dermatological fact: Follicle count, density, and genetics are 100% unaffected.</text>
+        <!-- Top Tag in Left Card -->
+        <g transform="translate(85, 275)">
+          <rect width="170" height="38" rx="19" fill="url(#redGrad)"/>
+          <text x="85" y="25" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#FFFFFF" text-anchor="middle" letter-spacing="1">❌ THE FEAR</text>
         </g>
 
-        <!-- Truth Box -->
-        <g transform="translate(35, 215)">
-          <rect width="890" height="185" rx="20" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.5"/>
-          ${drawTruthBadge(25, 20)}
-          <text x="25" y="95" font-family="${FONT.sans}" font-weight="800" font-size="23" fill="#14532D">“Peach fuzz grows back with the exact same soft, fine tip.”</text>
-          <text x="25" y="128" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Dermaplaning only sweeps away surface fuzz and dull dead skin cells safely.</text>
-          <text x="25" y="158" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#15803D">✨ Result: Instant glowing glass skin and seamless, cake-free foundation!</text>
+        <!-- Bottom Text in Left Card (Short, punchy, NO paragraphs) -->
+        <g transform="translate(85, 875)">
+          <text x="0" y="38" font-family="${FONT.sans}" font-weight="900" font-size="28" fill="#991B1B">“Baal Motay Ayenge?”</text>
+          <text x="0" y="78" font-family="${FONT.sans}" font-weight="900" font-size="22" fill="#DC2626">100% FALSE MYTH ❌</text>
+          <text x="0" y="116" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#7F1D1D">Follicles &amp; genetics never change.</text>
+          <text x="0" y="146" font-family="${FONT.sans}" font-weight="600" font-size="16" fill="#991B1B">Shaving cannot create thick hair!</text>
+
+          <rect x="0" y="180" width="415" height="44" rx="14" fill="#FEE2E2" stroke="#FCA5A5" stroke-width="1.5"/>
+          <text x="207" y="208" font-family="${FONT.sans}" font-weight="900" font-size="15" fill="#B91C1C" text-anchor="middle" letter-spacing="0.5">NO BEARD • NO THICK STUBBLE</text>
         </g>
       </g>
 
-      ${drawBottomPricingBar(1225)}
+      <!-- ================= RIGHT CARD: THE REALITY (CARD 1 PHOTO + GREEN CHECKMARK) ================= -->
+      <g filter="url(#softShadow)">
+        <rect x="555" y="250" width="465" height="880" rx="32" ry="32" fill="#FFFFFF" stroke="#86EFAC" stroke-width="2"/>
+
+        <g clip-path="url(#rightCardClip)">
+          <!-- Authentic Photo: Girlies Glow Razor Dermaplaning Peach Fuzz (Card 1.png) -->
+          <image href="${photoB64}" x="545" y="250" width="490" height="590" preserveAspectRatio="xMidYMid slice"/>
+
+          <!-- ================= THE BIG GREEN CHECKMARK OVER REALITY ================= -->
+          <g transform="translate(787, 570)">
+            <circle cx="0" cy="0" r="115" fill="rgba(22, 163, 74, 0.92)" stroke="#FFFFFF" stroke-width="6" filter="url(#softShadow)"/>
+            <path d="M-45 5 L-15 35 L45 -28" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+        </g>
+
+        <!-- Top Tag in Right Card -->
+        <g transform="translate(580, 275)">
+          <rect width="170" height="38" rx="19" fill="url(#greenGrad)"/>
+          <text x="85" y="25" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#FFFFFF" text-anchor="middle" letter-spacing="1">✓ THE REALITY</text>
+        </g>
+
+        <!-- Bottom Text in Right Card (Short, punchy, NO paragraphs) -->
+        <g transform="translate(580, 875)">
+          <text x="0" y="38" font-family="${FONT.sans}" font-weight="900" font-size="28" fill="#14532D">“Soft Peach Fuzz Only”</text>
+          <text x="0" y="78" font-family="${FONT.sans}" font-weight="900" font-size="22" fill="#16A34A">GLOWS BACK 100% SOFT ✨</text>
+          <text x="0" y="116" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#14532D">Vellus hair stays light &amp; invisible.</text>
+          <text x="0" y="146" font-family="${FONT.sans}" font-weight="600" font-size="16" fill="#15803D">Makeup glides on like melted butter!</text>
+
+          <rect x="0" y="180" width="415" height="44" rx="14" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1.5"/>
+          <text x="207" y="208" font-family="${FONT.sans}" font-weight="900" font-size="15" fill="#166534" text-anchor="middle" letter-spacing="0.5">INSTANT GLASS SKIN • 100% SAFE</text>
+        </g>
+      </g>
+
+      <!-- ================= CENTER "VS" CIRCLE BADGE ================= -->
+      <g transform="translate(540, 620)" filter="url(#softShadow)">
+        <circle cx="0" cy="0" r="38" fill="#1F1030" stroke="#FFFFFF" stroke-width="5"/>
+        <text x="0" y="9" font-family="${FONT.sans}" font-weight="900" font-size="24" fill="#FFFFFF" text-anchor="middle">VS</text>
+      </g>
+
+      <!-- ================= BOTTOM CONVERSION BAR ================= -->
+      ${drawBottomPricingBar(1220)}
     </svg>
   `;
 
@@ -243,11 +311,12 @@ export function renderPost1(outputPath = path.join(GENERATED_DIR, 'post_1_static
 }
 
 // Post 2: Product in Action (Reel 9:16, 1080x1920)
+// Full-bleed visual dominance with floating steps overlay (no bulky white text card)
 export function renderPost2(
   coverPngPath = path.join(GENERATED_DIR, 'post_2_reel.png'),
   reelMp4Path = path.join(GENERATED_DIR, 'post_2_reel.mp4')
 ) {
-  // Use authentic WHITE wheat-straw razor held at marble vanity
+  // Use authentic WHITE wheat-straw razor held at vanity / water
   const photoB64 = getAssetBase64('packaging section two.png');
 
   const refGif = path.join(ROOT_DIR, 'WhatsApp GIF 2026-09-11 at 00.01.06.gif');
@@ -258,7 +327,7 @@ export function renderPost2(
       ${getSvgDefs()}
       <defs>
         <clipPath id="p2Clip">
-          <rect x="60" y="320" width="960" height="880" rx="36" ry="36"/>
+          <rect x="60" y="300" width="960" height="1280" rx="36" ry="36"/>
         </clipPath>
       </defs>
 
@@ -266,65 +335,48 @@ export function renderPost2(
       ${drawTopBadgeReel('HOW TO DERMAPLANE ✨', 70)}
 
       <!-- Headline -->
-      <text x="60" y="200" font-family="${FONT.sans}" font-weight="900" font-size="50" fill="${BRAND.deepPlum}">The Secret to Flawless,</text>
-      <text x="60" y="265" font-family="${FONT.sans}" font-weight="900" font-size="50" fill="${BRAND.purple}">Butter-Smooth Glass Skin 🌸</text>
+      <text x="60" y="195" font-family="${FONT.sans}" font-weight="900" font-size="52" fill="${BRAND.deepPlum}">The 5-Minute Secret To</text>
+      <text x="60" y="260" font-family="${FONT.sans}" font-weight="900" font-size="52" fill="${BRAND.purple}">Butter-Smooth Glass Skin 🌸</text>
 
-      <!-- Real Macro Studio Asset: White Wheat-Straw Razor -->
+      <!-- Full-Bleed 1280px Tall Authentic Photo Showcase -->
       <g filter="url(#softShadow)">
         <g clip-path="url(#p2Clip)">
-          <image href="${photoB64}" x="60" y="250" width="960" height="1000" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${photoB64}" x="60" y="240" width="960" height="1360" preserveAspectRatio="xMidYMid slice"/>
+
+          <!-- Floating Badges Directly Over Photo -->
+          <g transform="translate(95, 335)">
+            <rect width="320" height="48" rx="24" fill="rgba(255, 255, 255, 0.95)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
+            <text x="160" y="30" font-family="${FONT.sans}" font-weight="800" font-size="16" fill="${BRAND.purple}" text-anchor="middle">🌾 AUTHENTIC WHITE RAZOR</text>
+          </g>
+
+          <g transform="translate(680, 335)">
+            <rect width="310" height="48" rx="24" fill="rgba(31, 16, 48, 0.90)"/>
+            <text x="155" y="30" font-family="${FONT.sans}" font-weight="700" font-size="15" fill="#FFFFFF" text-anchor="middle">🛡️ Stainless Micro-Guard</text>
+          </g>
+
+          <!-- Center Glowing Play Icon Overlay -->
+          <g transform="translate(540, 850)">
+            <circle cx="0" cy="0" r="60" fill="rgba(104, 61, 169, 0.92)" stroke="#FFFFFF" stroke-width="5" filter="url(#softShadow)"/>
+            <polygon points="-16,-28 -16,28 32,0" fill="#FFFFFF"/>
+          </g>
+
+          <!-- Sleek Semi-Transparent Step Overlays (NO heavy white paragraph cards) -->
+          <g transform="translate(90, 1160)">
+            <rect width="895" height="150" rx="24" fill="rgba(31, 16, 48, 0.88)" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1.5"/>
+            <text x="45" y="45" font-family="${FONT.sans}" font-weight="800" font-size="22" fill="#FFFFFF">① Cleanse &amp; Pat Dry 🧴</text>
+            <text x="345" y="45" font-family="${FONT.sans}" font-weight="800" font-size="22" fill="#FFFFFF">② 45° Gentle Glide 📐</text>
+            <text x="645" y="45" font-family="${FONT.sans}" font-weight="800" font-size="22" fill="#FFFFFF">③ Hydrate &amp; Glow ✨</text>
+            <text x="447" y="105" font-family="${FONT.sans}" font-weight="700" font-size="20" fill="#86EFAC" text-anchor="middle">Watch peach fuzz &amp; dead cells melt away with zero cuts or redness!</text>
+          </g>
         </g>
-        <rect x="60" y="320" width="960" height="880" rx="36" ry="36" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
-      </g>
-
-      <!-- Floating Badges on Photo -->
-      <g transform="translate(90, 360)">
-        <rect width="320" height="48" rx="24" fill="rgba(255, 255, 255, 0.95)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
-        <text x="160" y="30" font-family="${FONT.sans}" font-weight="800" font-size="16" fill="${BRAND.purple}" text-anchor="middle">🌾 AUTHENTIC WHITE RAZOR</text>
-      </g>
-
-      <g transform="translate(90, 1130)">
-        <rect width="330" height="44" rx="22" fill="rgba(31, 16, 48, 0.88)"/>
-        <text x="165" y="28" font-family="${FONT.sans}" font-weight="700" font-size="15" fill="${BRAND.white}" text-anchor="middle">🛡️ Stainless Micro-Guard Safety Edge</text>
-      </g>
-
-      <!-- 3 Step Highlights -->
-      <g transform="translate(60, 1230)" filter="url(#softShadow)">
-        <rect width="960" height="420" rx="32" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-
-        <!-- Step 1 -->
-        <g transform="translate(40, 35)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="900" font-size="20" fill="${BRAND.purple}" text-anchor="middle">01</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Cleanse &amp; Prep Skin</text>
-          <text x="75" y="55" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Wash face thoroughly. Shave on clean dry skin or with 2 drops of facial oil.</text>
-        </g>
-
-        <!-- Step 2 -->
-        <g transform="translate(40, 135)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="900" font-size="20" fill="${BRAND.purple}" text-anchor="middle">02</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Hold at 45° Angle</text>
-          <text x="75" y="55" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Pull skin taut with your free hand. Glide with light, short downward strokes.</text>
-        </g>
-
-        <!-- Step 3 -->
-        <g transform="translate(40, 235)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="900" font-size="20" fill="${BRAND.purple}" text-anchor="middle">03</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Hydrate &amp; Protect</text>
-          <text x="75" y="55" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Apply your favorite barrier cream or hydrating serum for glowing glass skin.</text>
-        </g>
-
-        <rect x="40" y="325" width="880" height="65" rx="18" fill="${BRAND.softLavender}"/>
-        <text x="480" y="365" font-family="${FONT.sans}" font-weight="800" font-size="19" fill="${BRAND.purple}" text-anchor="middle">🌾 Eco Wheat-Straw Handle • Beginner Friendly • Zero Cuts</text>
+        <rect x="60" y="300" width="960" height="1280" rx="36" ry="36" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <!-- Bottom Order Pill -->
-      <g transform="translate(60, 1680)" filter="url(#softShadow)">
-        <rect width="960" height="150" rx="36" fill="url(#greenGrad)"/>
-        <text x="480" y="65" font-family="${FONT.sans}" font-weight="900" font-size="30" fill="${BRAND.white}" text-anchor="middle">Rs. 599 • CASH ON DELIVERY NATIONWIDE</text>
-        <text x="480" y="105" font-family="${FONT.sans}" font-weight="700" font-size="20" fill="${BRAND.white}" text-anchor="middle">DM @girli_esglow or tap link in bio to order now</text>
+      <g transform="translate(60, 1650)" filter="url(#softShadow)">
+        <rect width="960" height="160" rx="36" fill="url(#greenGrad)"/>
+        <text x="480" y="65" font-family="${FONT.sans}" font-weight="900" font-size="32" fill="${BRAND.white}" text-anchor="middle">Rs. 599 • CASH ON DELIVERY NATIONWIDE 🇵🇰</text>
+        <text x="480" y="110" font-family="${FONT.sans}" font-weight="700" font-size="22" fill="${BRAND.white}" text-anchor="middle">DM @girli_esglow or tap link in bio to order now</text>
       </g>
     </svg>
   `;
@@ -335,48 +387,49 @@ export function renderPost2(
   return coverPngPath;
 }
 
-// Post 3: Makeup Benefits (Carousel 4 slides, each 1080x1350)
+// Post 3: The Root Cause Carousel (4 slides, 1080x1350)
+// 80%+ visual photography, punchy 1-line hooks, swipe cues, zero paragraph walls
 export function renderPost3(outputDir = GENERATED_DIR) {
-  const cakeyB64 = getAssetBase64('card7.png');
+  const cakeyBaseB64 = getAssetBase64('card7.png');
   const drySkinB64 = getAssetBase64('car5.png');
-  // Use authentic WHITE razor head macro
-  const razorActionB64 = getAssetBase64('packaging section three.png');
+  const razorActionB64 = getAssetBase64('Card 1.png');
   const flatlayB64 = getAssetBase64('Section 1.png');
 
-  // Slide 1: Hook (Why your foundation looks cakey)
+  // Slide 1: The Problem (Macro Cakey Makeup)
   const svg1 = `
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p3s1Clip"><rect x="60" y="240" width="960" height="690" rx="28" ry="28"/></clipPath>
+        <clipPath id="p3s1Clip"><rect x="60" y="240" width="960" height="770" rx="28" ry="28"/></clipPath>
       </defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
-      ${drawTopBadge('BEAUTY SECRETS 💄', 52)}
+      ${drawTopBadge('MAKEUP MISTAKE 💄', 52)}
 
       <text x="60" y="150" font-family="${FONT.sans}" font-weight="900" font-size="46" fill="${BRAND.deepPlum}">Why Does Your Foundation</text>
-      <text x="60" y="205" font-family="${FONT.sans}" font-weight="900" font-size="46" fill="${BRAND.purple}">Look Cakey &amp; Textured? 👀</text>
+      <text x="60" y="205" font-family="${FONT.sans}" font-weight="900" font-size="46" fill="#DC2626">Always Look Cakey &amp; Patchy? 😩</text>
 
+      <!-- 770px High-Impact Visual -->
       <g filter="url(#softShadow)">
         <g clip-path="url(#p3s1Clip)">
-          <image href="${cakeyB64}" x="60" y="180" width="960" height="800" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${cakeyBaseB64}" x="60" y="220" width="960" height="800" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="240" width="960" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="770" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <g transform="translate(90, 275)">
-        <rect width="320" height="44" rx="22" fill="rgba(255, 255, 255, 0.94)" stroke="rgba(225, 29, 72, 0.3)" stroke-width="1.5"/>
-        <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="#E11D48" text-anchor="middle">⚠️ CAKEY FOUNDATION CLINGING</text>
+        <rect width="320" height="44" rx="22" fill="rgba(220, 38, 38, 0.92)"/>
+        <text x="160" y="28" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#FFFFFF" text-anchor="middle">❌ CAKEY, CRACKING BASE</text>
       </g>
 
-      <g transform="translate(60, 960)" filter="url(#softShadow)">
-        <rect width="960" height="235" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-        <text x="40" y="55" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">It’s Not Your Skincare — It’s Peach Fuzz!</text>
-        <text x="40" y="95" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Microscopic facial hair and dead skin trap liquid pigment and powder,</text>
-        <text x="40" y="125" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">causing your base to look patchy and separate throughout the day.</text>
+      <!-- Punchy Floating Action Bar (NO paragraphs) -->
+      <g transform="translate(60, 1040)" filter="url(#softShadow)">
+        <rect width="960" height="155" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+        <text x="40" y="45" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">The Real Culprit: Invisible Peach Fuzz &amp; Dead Skin!</text>
+        <text x="40" y="78" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Makeup clings to fuzzy texture rather than blending cleanly into your skin.</text>
         
-        <g transform="translate(40, 155)">
-          <rect width="880" height="52" rx="16" fill="${BRAND.softLavender}"/>
-          <text x="440" y="33" font-family="${FONT.sans}" font-weight="800" font-size="17" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO SEE HOW DERMAPLANING FIXES THIS 👉</text>
+        <g transform="translate(40, 95)">
+          <rect width="880" height="42" rx="14" fill="${BRAND.softLavender}"/>
+          <text x="440" y="27" font-family="${FONT.sans}" font-weight="900" font-size="15" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO SEE HOW DERMAPLANING FIXES THIS 👉</text>
         </g>
       </g>
 
@@ -389,7 +442,7 @@ export function renderPost3(outputDir = GENERATED_DIR) {
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p3s2Clip"><rect x="60" y="240" width="960" height="690" rx="28" ry="28"/></clipPath>
+        <clipPath id="p3s2Clip"><rect x="60" y="240" width="960" height="770" rx="28" ry="28"/></clipPath>
       </defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('THE ROOT CAUSE 🔍', 52)}
@@ -399,25 +452,24 @@ export function renderPost3(outputDir = GENERATED_DIR) {
 
       <g filter="url(#softShadow)">
         <g clip-path="url(#p3s2Clip)">
-          <image href="${drySkinB64}" x="60" y="180" width="960" height="800" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${drySkinB64}" x="60" y="200" width="960" height="820" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="240" width="960" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="770" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <g transform="translate(90, 275)">
-        <rect width="320" height="44" rx="22" fill="rgba(255, 255, 255, 0.94)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
-        <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🔍 MICROSCOPIC DRY TEXTURE</text>
+        <rect width="320" height="44" rx="22" fill="rgba(31, 16, 48, 0.88)"/>
+        <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="#FFFFFF" text-anchor="middle">🔍 MICROSCOPIC DRY TEXTURE</text>
       </g>
 
-      <g transform="translate(60, 960)" filter="url(#softShadow)">
-        <rect width="960" height="235" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-        <text x="40" y="55" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">Why Standard Exfoliation Falls Short</text>
-        <text x="40" y="95" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Scrubs only aggravate skin, and toners cannot remove physical vellus hair.</text>
-        <text x="40" y="125" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Dermaplaning physically clears dead cellular debris and peach fuzz in minutes.</text>
+      <g transform="translate(60, 1040)" filter="url(#softShadow)">
+        <rect width="960" height="155" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+        <text x="40" y="45" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Scrubs &amp; Toners Can’t Remove Physical Fuzz</text>
+        <text x="40" y="78" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Dermaplaning sweeps away dead cellular debris and vellus hair in 5 minutes.</text>
         
-        <g transform="translate(40, 155)">
-          <rect width="880" height="52" rx="16" fill="${BRAND.softLavender}"/>
-          <text x="440" y="33" font-family="${FONT.sans}" font-weight="800" font-size="17" fill="${BRAND.purple}" text-anchor="middle">SWIPE FOR THE 5-MINUTE FIX 👉</text>
+        <g transform="translate(40, 95)">
+          <rect width="880" height="42" rx="14" fill="${BRAND.softLavender}"/>
+          <text x="440" y="27" font-family="${FONT.sans}" font-weight="900" font-size="15" fill="${BRAND.purple}" text-anchor="middle">SWIPE FOR THE 5-MINUTE SOLUTION 👉</text>
         </g>
       </g>
 
@@ -430,35 +482,34 @@ export function renderPost3(outputDir = GENERATED_DIR) {
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p3s3Clip"><rect x="60" y="240" width="960" height="690" rx="28" ry="28"/></clipPath>
+        <clipPath id="p3s3Clip"><rect x="60" y="240" width="960" height="770" rx="28" ry="28"/></clipPath>
       </defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
-      ${drawTopBadge('THE SOLUTION ✨', 52)}
+      ${drawTopBadge('THE 5-MINUTE FIX ✨', 52)}
 
       <text x="60" y="150" font-family="${FONT.sans}" font-weight="900" font-size="46" fill="${BRAND.deepPlum}">Dermaplane First.</text>
       <text x="60" y="205" font-family="${FONT.sans}" font-weight="900" font-size="46" fill="${BRAND.purple}">Melt Foundation Later. 🌸</text>
 
       <g filter="url(#softShadow)">
         <g clip-path="url(#p3s3Clip)">
-          <image href="${razorActionB64}" x="60" y="200" width="960" height="780" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${razorActionB64}" x="60" y="220" width="960" height="800" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="240" width="960" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="770" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <g transform="translate(90, 275)">
-        <rect width="320" height="44" rx="22" fill="rgba(255, 255, 255, 0.94)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
-        <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🌾 WHITE MICRO-GUARD RAZOR</text>
+        <rect width="320" height="44" rx="22" fill="url(#greenGrad)"/>
+        <text x="160" y="28" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#FFFFFF" text-anchor="middle">✓ ZERO CUTS • 100% PAINLESS</text>
       </g>
 
-      <g transform="translate(60, 960)" filter="url(#softShadow)">
-        <rect width="960" height="235" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-        <text x="40" y="55" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">Baby Soft, Reflective Canvas</text>
-        <text x="40" y="95" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Light strokes glide smoothly over the skin surface with our micro-guard.</text>
-        <text x="40" y="125" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Zero pain, zero cuts. Makeup applies like melted butter.</text>
+      <g transform="translate(60, 1040)" filter="url(#softShadow)">
+        <rect width="960" height="155" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+        <text x="40" y="45" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Instant Glass Skin &amp; Reflective Radiance</text>
+        <text x="40" y="78" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Light strokes glide smoothly over the surface with our micro-guard blade.</text>
         
-        <g transform="translate(40, 155)">
-          <rect width="880" height="52" rx="16" fill="${BRAND.softLavender}"/>
-          <text x="440" y="33" font-family="${FONT.sans}" font-weight="800" font-size="17" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO MEET YOUR NEW BEAUTY BESTIE 👉</text>
+        <g transform="translate(40, 95)">
+          <rect width="880" height="42" rx="14" fill="${BRAND.softLavender}"/>
+          <text x="440" y="27" font-family="${FONT.sans}" font-weight="900" font-size="15" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO MEET YOUR NEW BEAUTY BESTIE 👉</text>
         </g>
       </g>
 
@@ -471,7 +522,7 @@ export function renderPost3(outputDir = GENERATED_DIR) {
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p3s4Clip"><rect x="60" y="240" width="960" height="690" rx="28" ry="28"/></clipPath>
+        <clipPath id="p3s4Clip"><rect x="60" y="240" width="960" height="770" rx="28" ry="28"/></clipPath>
       </defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('GLOW AT HOME 🇵🇰', 52)}
@@ -481,9 +532,9 @@ export function renderPost3(outputDir = GENERATED_DIR) {
 
       <g filter="url(#softShadow)">
         <g clip-path="url(#p3s4Clip)">
-          <image href="${flatlayB64}" x="60" y="220" width="960" height="740" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${flatlayB64}" x="60" y="230" width="960" height="790" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="240" width="960" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="770" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <g transform="translate(90, 275)">
@@ -491,15 +542,14 @@ export function renderPost3(outputDir = GENERATED_DIR) {
         <text x="165" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🌾 BIODEGRADABLE WHEAT STRAW</text>
       </g>
 
-      <g transform="translate(60, 960)" filter="url(#softShadow)">
-        <rect width="960" height="235" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-        <text x="40" y="55" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">Your Base Just Found Its Match 💜</text>
-        <text x="40" y="95" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">3x Eco-friendly wheat straw razors (White) with precision micro-guards.</text>
-        <text x="40" y="125" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Safe for sensitive skin. Lasts months. Cash on Delivery nationwide.</text>
+      <g transform="translate(60, 1040)" filter="url(#softShadow)">
+        <rect width="960" height="155" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+        <text x="40" y="45" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Your Base Just Found Its Match 💜</text>
+        <text x="40" y="78" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Pack of 3 eco razors (White). Lasts months. Cash on Delivery across Pakistan.</text>
         
-        <g transform="translate(40, 155)">
-          <rect width="880" height="52" rx="16" fill="url(#greenGrad)"/>
-          <text x="440" y="33" font-family="${FONT.sans}" font-weight="900" font-size="19" fill="${BRAND.white}" text-anchor="middle">ORDER NOW FOR Rs. 599 • CASH ON DELIVERY 🇵🇰</text>
+        <g transform="translate(40, 95)">
+          <rect width="880" height="45" rx="14" fill="url(#greenGrad)"/>
+          <text x="440" y="29" font-family="${FONT.sans}" font-weight="900" font-size="17" fill="${BRAND.white}" text-anchor="middle">ORDER NOW FOR Rs. 599 • CASH ON DELIVERY 🇵🇰</text>
         </g>
       </g>
 
@@ -515,6 +565,7 @@ export function renderPost3(outputDir = GENERATED_DIR) {
 }
 
 // Post 4: Salon vs. Home (Static 4:5, 1080x1350)
+// High-contrast price & pain comparison with authentic product showcase
 export function renderPost4(outputPath = path.join(GENERATED_DIR, 'post_4_static.png')) {
   const photoB64 = getAssetBase64('Section 1.png');
 
@@ -522,7 +573,7 @@ export function renderPost4(outputPath = path.join(GENERATED_DIR, 'post_4_static
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p4PhotoClip"><rect x="60" y="900" width="960" height="290" rx="24" ry="24"/></clipPath>
+        <clipPath id="p4PhotoClip"><rect x="60" y="850" width="960" height="345" rx="24" ry="24"/></clipPath>
       </defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('SMART BEAUTY • COMPARISON', 52)}
@@ -531,58 +582,62 @@ export function renderPost4(outputPath = path.join(GENERATED_DIR, 'post_4_static
       <text x="60" y="205" font-family="${FONT.sans}" font-weight="900" font-size="46" fill="${BRAND.purple}">Glow Ghar Par 💅</text>
 
       <!-- Side-by-Side Comparison Grid -->
-      <g transform="translate(60, 260)" filter="url(#softShadow)">
+      <g transform="translate(60, 245)" filter="url(#softShadow)">
         <!-- Parlour Column -->
         <g transform="translate(0, 0)">
-          <rect width="465" height="610" rx="28" fill="${BRAND.white}" stroke="#FEE2E2" stroke-width="2"/>
-          <rect x="35" y="30" width="230" height="42" rx="21" fill="#FEE2E2"/>
-          <text x="150" y="57" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#DC2626" text-anchor="middle">SALON WAXING / THREADING</text>
+          <rect width="465" height="575" rx="28" fill="${BRAND.white}" stroke="#FEE2E2" stroke-width="2"/>
+          <rect x="30" y="25" width="260" height="40" rx="20" fill="#FEE2E2"/>
+          <text x="160" y="51" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#DC2626" text-anchor="middle">SALON WAXING / THREADING</text>
 
-          <text x="35" y="120" font-family="${FONT.sans}" font-weight="900" font-size="32" fill="#991B1B">Rs. 1,500 – 2,500</text>
-          <text x="35" y="150" font-family="${FONT.sans}" font-weight="600" font-size="16" fill="#B91C1C">Every single parlour appointment</text>
+          <text x="30" y="115" font-family="${FONT.sans}" font-weight="900" font-size="36" fill="#991B1B">Rs. 2,500</text>
+          <text x="30" y="145" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="#B91C1C">Every single salon appointment</text>
 
-          <g transform="translate(35, 190)">
-            <text x="0" y="30" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#7F1D1D">✕ 1-2 hours lost in traffic &amp; waiting</text>
-            <text x="0" y="80" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#7F1D1D">✕ Painful hair pulling &amp; skin stretching</text>
-            <text x="0" y="130" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#7F1D1D">✕ Post-waxing redness &amp; breakout risk</text>
-            <text x="0" y="180" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#7F1D1D">✕ High recurring monthly expense</text>
+          <g transform="translate(30, 180)">
+            <text x="0" y="25" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#7F1D1D">✕ 1-2 hours lost in traffic &amp; waiting</text>
+            <text x="0" y="70" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#7F1D1D">✕ Painful hair pulling &amp; skin stretch</text>
+            <text x="0" y="115" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#7F1D1D">✕ Post-waxing redness &amp; acne bumps</text>
+            <text x="0" y="160" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#7F1D1D">✕ Over Rs. 24,000 every single year</text>
           </g>
 
-          <rect x="35" y="490" width="395" height="80" rx="18" fill="#FEF2F2"/>
-          <text x="232" y="530" font-family="${FONT.sans}" font-weight="800" font-size="16" fill="#991B1B" text-anchor="middle">Over Rs. 24,000/year spent</text>
-          <text x="232" y="555" font-family="${FONT.sans}" font-weight="600" font-size="14" fill="#B91C1C" text-anchor="middle">on routine salon visits</text>
+          <rect x="30" y="475" width="405" height="70" rx="16" fill="#FEF2F2"/>
+          <text x="232" y="517" font-family="${FONT.sans}" font-weight="900" font-size="17" fill="#991B1B" text-anchor="middle">PAINFUL &amp; EXPENSIVE ❌</text>
         </g>
 
         <!-- Girlies Glow Column -->
         <g transform="translate(495, 0)">
-          <rect width="465" height="610" rx="28" fill="${BRAND.white}" stroke="#BBF7D0" stroke-width="2"/>
-          <rect x="35" y="30" width="180" height="42" rx="21" fill="#DCFCE7"/>
-          <text x="125" y="57" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#15803D" text-anchor="middle">GIRLIES GLOW ✨</text>
+          <rect width="465" height="575" rx="28" fill="${BRAND.white}" stroke="#BBF7D0" stroke-width="2"/>
+          <rect x="30" y="25" width="200" height="40" rx="20" fill="#DCFCE7"/>
+          <text x="130" y="51" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#15803D" text-anchor="middle">GIRLIES GLOW ✨</text>
 
-          <text x="35" y="120" font-family="${FONT.sans}" font-weight="900" font-size="32" fill="#166534">Rs. 599 ONLY</text>
-          <text x="35" y="150" font-family="${FONT.sans}" font-weight="600" font-size="16" fill="#15803D">Complete set • Reusable for months</text>
+          <text x="30" y="115" font-family="${FONT.sans}" font-weight="900" font-size="36" fill="#166534">Rs. 599 ONLY</text>
+          <text x="30" y="145" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="#15803D">Complete set • Reusable for months</text>
 
-          <g transform="translate(35, 190)">
-            <text x="0" y="30" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#14532D">✓ 5 minutes in your own bedroom</text>
-            <text x="0" y="80" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#14532D">✓ 100% Painless micro-guard blade</text>
-            <text x="0" y="130" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#14532D">✓ Instant glass skin &amp; smooth base</text>
-            <text x="0" y="180" font-family="${FONT.sans}" font-weight="700" font-size="18" fill="#14532D">✓ Biodegradable eco wheat-straw (White)</text>
+          <g transform="translate(30, 180)">
+            <text x="0" y="25" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#14532D">✓ 5 minutes in your own bedroom</text>
+            <text x="0" y="70" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#14532D">✓ 100% Painless micro-guard blade</text>
+            <text x="0" y="115" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#14532D">✓ Instant glass skin &amp; butter base</text>
+            <text x="0" y="160" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#14532D">✓ Biodegradable wheat straw (White)</text>
           </g>
 
-          <rect x="35" y="490" width="395" height="80" rx="18" fill="url(#greenGrad)"/>
-          <text x="232" y="530" font-family="${FONT.sans}" font-weight="900" font-size="18" fill="${BRAND.white}" text-anchor="middle">SAVE OVER Rs. 20,000</text>
-          <text x="232" y="555" font-family="${FONT.sans}" font-weight="700" font-size="14" fill="${BRAND.white}" text-anchor="middle">Same salon results from home</text>
+          <rect x="30" y="475" width="405" height="70" rx="16" fill="url(#greenGrad)"/>
+          <text x="232" y="517" font-family="${FONT.sans}" font-weight="900" font-size="18" fill="${BRAND.white}" text-anchor="middle">SAVE RS. 20,000+ A YEAR ✓</text>
         </g>
+      </g>
+
+      <!-- Center VS Badge -->
+      <g transform="translate(540, 520)" filter="url(#softShadow)">
+        <circle cx="0" cy="0" r="34" fill="#1F1030" stroke="#FFFFFF" stroke-width="4"/>
+        <text x="0" y="8" font-family="${FONT.sans}" font-weight="900" font-size="20" fill="#FFFFFF" text-anchor="middle">VS</text>
       </g>
 
       <!-- Real Photo Showcase at Bottom -->
       <g filter="url(#softShadow)">
         <g clip-path="url(#p4PhotoClip)">
-          <image href="${photoB64}" x="60" y="870" width="960" height="360" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${photoB64}" x="60" y="820" width="960" height="420" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="900" width="960" height="290" rx="24" ry="24" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="850" width="960" height="345" rx="24" ry="24" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
         
-        <g transform="translate(90, 930)">
+        <g transform="translate(90, 880)">
           <rect width="280" height="42" rx="21" fill="rgba(255, 255, 255, 0.95)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
           <text x="140" y="27" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🌾 WHEAT-STRAW PACK OF 3</text>
         </g>
@@ -596,6 +651,7 @@ export function renderPost4(outputPath = path.join(GENERATED_DIR, 'post_4_static
 }
 
 // Post 5: Relatable UGC Testimonial (Reel 9:16, 1080x1920)
+// Authentic Pakistani lifestyle visual, gold stars, 1-line quote, zero paragraph walls
 export function renderPost5(
   coverPngPath = path.join(GENERATED_DIR, 'post_5_reel.png'),
   reelMp4Path = path.join(GENERATED_DIR, 'post_5_reel.mp4')
@@ -609,61 +665,53 @@ export function renderPost5(
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p5Clip"><rect x="60" y="320" width="960" height="880" rx="36" ry="36"/></clipPath>
+        <clipPath id="p5Clip"><rect x="60" y="300" width="960" height="1280" rx="36" ry="36"/></clipPath>
       </defs>
       <rect width="1080" height="1920" fill="url(#bgWarmGrad)"/>
       ${drawTopBadgeReel('REAL CUSTOMER REVIEW ⭐', 70)}
 
       <!-- Headline -->
-      <text x="60" y="200" font-family="${FONT.sans}" font-weight="900" font-size="48" fill="${BRAND.deepPlum}">“I was terrified to shave my face</text>
-      <text x="60" y="265" font-family="${FONT.sans}" font-weight="900" font-size="48" fill="${BRAND.purple}">until I tried Girlies Glow!” 💜</text>
+      <text x="60" y="195" font-family="${FONT.sans}" font-weight="900" font-size="50" fill="${BRAND.deepPlum}">“I was terrified to shave my face</text>
+      <text x="60" y="260" font-family="${FONT.sans}" font-weight="900" font-size="50" fill="${BRAND.purple}">until I tried Girlies Glow!” 💜</text>
 
       <!-- Real Lifestyle Photo (Card 4) -->
       <g filter="url(#softShadow)">
         <g clip-path="url(#p5Clip)">
-          <image href="${photoB64}" x="60" y="260" width="960" height="980" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${photoB64}" x="60" y="240" width="960" height="1360" preserveAspectRatio="xMidYMid slice"/>
+
+          <!-- Floating Badges on Photo -->
+          <g transform="translate(95, 335)">
+            <rect width="280" height="48" rx="24" fill="rgba(255, 255, 255, 0.95)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
+            <text x="140" y="30" font-family="${FONT.sans}" font-weight="800" font-size="16" fill="${BRAND.purple}" text-anchor="middle">🌸 10,000+ HAPPY GIRLS</text>
+          </g>
+
+          <g transform="translate(680, 335)">
+            <rect width="280" height="48" rx="24" fill="#047857"/>
+            <text x="140" y="30" font-family="${FONT.sans}" font-weight="800" font-size="15" fill="#FFFFFF" text-anchor="middle">VERIFIED BUYER ✓</text>
+          </g>
+
+          <!-- Floating Modern Review Card Over Lower Photo -->
+          <g transform="translate(90, 1150)">
+            <rect width="895" height="180" rx="24" fill="rgba(255, 255, 255, 0.96)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5" filter="url(#softShadow)"/>
+            
+            <g transform="translate(35, 25)">
+              ${drawGoldStars(20, 20, 28, 36)}
+              <text x="210" y="26" font-family="${FONT.sans}" font-weight="900" font-size="18" fill="${BRAND.deepPlum}">Ayesha K. — Lahore</text>
+            </g>
+
+            <text x="35" y="85" font-family="${FONT.sans}" font-weight="800" font-size="22" fill="${BRAND.deepPlum}">“My parlour lady said baal motay ayenge. 100% FALSE!”</text>
+            <text x="35" y="118" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.purple}">“My makeup has NEVER looked this smooth. Best Rs. 599 decision!”</text>
+            <text x="35" y="148" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">Verified Customer • Cash on Delivery Order</text>
+          </g>
         </g>
-        <rect x="60" y="320" width="960" height="880" rx="36" ry="36" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
-      </g>
-
-      <!-- Floating Badge on Photo -->
-      <g transform="translate(90, 360)">
-        <rect width="280" height="48" rx="24" fill="rgba(255, 255, 255, 0.95)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
-        <text x="140" y="30" font-family="${FONT.sans}" font-weight="800" font-size="16" fill="${BRAND.purple}" text-anchor="middle">🌸 10,000+ HAPPY GIRLS</text>
-      </g>
-
-      <!-- Luxury Testimonial Card -->
-      <g transform="translate(60, 1230)" filter="url(#softShadow)">
-        <rect width="960" height="420" rx="32" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-
-        <!-- Gold Stars & Verified Badge -->
-        <g transform="translate(50, 45)">
-          ${drawGoldStars(20, 20, 30, 40)}
-          <rect x="235" y="2" width="180" height="38" rx="19" fill="#ECFDF5"/>
-          <text x="325" y="26" font-family="${FONT.sans}" font-weight="800" font-size="15" fill="#047857" text-anchor="middle">VERIFIED BUYER ✓</text>
-        </g>
-
-        <!-- Quote -->
-        <g transform="translate(50, 115)">
-          <text x="0" y="35" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">“Honestly, my parlour lady always said baal motay ho jayenge.”</text>
-          <text x="0" y="80" font-family="${FONT.sans}" font-weight="600" font-size="20" fill="${BRAND.charcoalText}">“Finally ordered Girlies Glow for Rs. 599. My foundation has</text>
-          <text x="0" y="115" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.purple}">NEVER looked this smooth! Zero cuts, zero redness. Best at-home decision!”</text>
-        </g>
-
-        <!-- Customer Signature -->
-        <g transform="translate(50, 290)">
-          <circle cx="30" cy="30" r="30" fill="${BRAND.softLavender}"/>
-          <text x="30" y="39" font-family="${FONT.sans}" font-weight="800" font-size="22" fill="${BRAND.purple}" text-anchor="middle">A</text>
-          <text x="75" y="28" font-family="${FONT.sans}" font-weight="800" font-size="22" fill="${BRAND.deepPlum}">Ayesha K. — Lahore</text>
-          <text x="75" y="52" font-family="${FONT.sans}" font-weight="600" font-size="16" fill="${BRAND.mutedText}">Cash on Delivery order • 5-Star Experience</text>
-        </g>
+        <rect x="60" y="300" width="960" height="1280" rx="36" ry="36" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <!-- Bottom Order Pill -->
-      <g transform="translate(60, 1680)" filter="url(#softShadow)">
-        <rect width="960" height="150" rx="36" fill="url(#greenGrad)"/>
-        <text x="480" y="65" font-family="${FONT.sans}" font-weight="900" font-size="30" fill="${BRAND.white}" text-anchor="middle">Rs. 599 • CASH ON DELIVERY NATIONWIDE</text>
-        <text x="480" y="105" font-family="${FONT.sans}" font-weight="700" font-size="20" fill="${BRAND.white}" text-anchor="middle">Order via DM @girli_esglow or link in bio</text>
+      <g transform="translate(60, 1650)" filter="url(#softShadow)">
+        <rect width="960" height="160" rx="36" fill="url(#greenGrad)"/>
+        <text x="480" y="65" font-family="${FONT.sans}" font-weight="900" font-size="32" fill="${BRAND.white}" text-anchor="middle">Rs. 599 • CASH ON DELIVERY NATIONWIDE 🇵🇰</text>
+        <text x="480" y="110" font-family="${FONT.sans}" font-weight="700" font-size="22" fill="${BRAND.white}" text-anchor="middle">Order via DM @girli_esglow or link in bio</text>
       </g>
     </svg>
   `;
@@ -675,6 +723,7 @@ export function renderPost5(
 }
 
 // Post 6: Product Benefits & Eco-Value (Static 4:5, 1080x1350)
+// Studio flatlay with pointer callouts & concise benefit pills
 export function renderPost6(outputPath = path.join(GENERATED_DIR, 'post_6_static.png')) {
   // Use authentic WHITE wheat-straw razor flatlay with dried lavender
   const photoB64 = getAssetBase64('Single.png');
@@ -683,7 +732,7 @@ export function renderPost6(outputPath = path.join(GENERATED_DIR, 'post_6_static
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p6Clip"><rect x="60" y="240" width="960" height="510" rx="28" ry="28"/></clipPath>
+        <clipPath id="p6Clip"><rect x="60" y="240" width="960" height="620" rx="28" ry="28"/></clipPath>
       </defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('ECO-LUXURY BEAUTY 🌿', 52)}
@@ -694,50 +743,62 @@ export function renderPost6(outputPath = path.join(GENERATED_DIR, 'post_6_static
       <!-- Real Studio Flatlay Asset -->
       <g filter="url(#softShadow)">
         <g clip-path="url(#p6Clip)">
-          <image href="${photoB64}" x="60" y="170" width="960" height="660" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${photoB64}" x="60" y="170" width="960" height="730" preserveAspectRatio="xMidYMid slice"/>
+
+          <!-- Pointer Callout Badges Directly on Photo -->
+          <g transform="translate(90, 275)">
+            <rect width="320" height="44" rx="22" fill="rgba(255, 255, 255, 0.94)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
+            <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🌾 AUTHENTIC WHITE RAZOR</text>
+          </g>
+
+          <g transform="translate(680, 780)">
+            <rect width="310" height="44" rx="22" fill="rgba(31, 16, 48, 0.88)"/>
+            <text x="155" y="28" font-family="${FONT.sans}" font-weight="700" font-size="14" fill="#FFFFFF" text-anchor="middle">🛡️ Stainless Micro-Guard Safety</text>
+          </g>
         </g>
-        <rect x="60" y="240" width="960" height="510" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="620" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
-      <g transform="translate(90, 275)">
-        <rect width="320" height="44" rx="22" fill="rgba(255, 255, 255, 0.94)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
-        <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🌾 AUTHENTIC WHITE RAZOR</text>
-      </g>
-
-      <!-- 4 Core Benefits Grid -->
-      <g transform="translate(60, 775)" filter="url(#softShadow)">
-        <rect width="960" height="425" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-
-        <!-- Benefit 1 -->
-        <g transform="translate(40, 35)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.purple}" text-anchor="middle">🌾</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Biodegradable Wheat Straw (White)</text>
-          <text x="75" y="52" font-family="${FONT.sans}" font-weight="600" font-size="17" fill="${BRAND.charcoalText}">Sustainable cream/white body with organic beige speckles. Zero cheap plastic.</text>
+      <!-- 4 Core Benefits Clean 2x2 Grid (NO text paragraphs) -->
+      <g transform="translate(60, 885)" filter="url(#softShadow)">
+        <!-- Card 1 -->
+        <g transform="translate(0, 0)">
+          <rect width="465" height="145" rx="20" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+          <circle cx="45" cy="45" r="24" fill="${BRAND.softLavender}"/>
+          <text x="45" y="53" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.purple}" text-anchor="middle">🌾</text>
+          <text x="85" y="42" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.deepPlum}">Wheat Straw Handle</text>
+          <text x="85" y="70" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">Sustainable cream body (White)</text>
+          <text x="85" y="94" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">Zero toxic petroleum plastics</text>
         </g>
 
-        <!-- Benefit 2 -->
-        <g transform="translate(40, 128)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.purple}" text-anchor="middle">🛡️</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Micro-Guard Safety Blade</text>
-          <text x="75" y="52" font-family="${FONT.sans}" font-weight="600" font-size="17" fill="${BRAND.charcoalText}">Stainless-steel protective ribs ensure 100% painless glide with zero nicks.</text>
+        <!-- Card 2 -->
+        <g transform="translate(495, 0)">
+          <rect width="465" height="145" rx="20" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+          <circle cx="45" cy="45" r="24" fill="${BRAND.softLavender}"/>
+          <text x="45" y="53" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.purple}" text-anchor="middle">🛡️</text>
+          <text x="85" y="42" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.deepPlum}">Micro-Guard Blade</text>
+          <text x="85" y="70" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">Stainless protective ribs</text>
+          <text x="85" y="94" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">100% painless with zero cuts</text>
         </g>
 
-        <!-- Benefit 3 -->
-        <g transform="translate(40, 221)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.purple}" text-anchor="middle">✨</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Instant 2-in-1 Exfoliation</text>
-          <text x="75" y="52" font-family="${FONT.sans}" font-weight="600" font-size="17" fill="${BRAND.charcoalText}">Removes dulling peach fuzz and sweeps away dry dead skin cells in minutes.</text>
+        <!-- Card 3 -->
+        <g transform="translate(0, 160)">
+          <rect width="465" height="145" rx="20" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+          <circle cx="45" cy="45" r="24" fill="${BRAND.softLavender}"/>
+          <text x="45" y="53" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.purple}" text-anchor="middle">✨</text>
+          <text x="85" y="42" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.deepPlum}">Instant 2-in-1 Exfoliation</text>
+          <text x="85" y="70" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">Removes fuzz &amp; dry dead skin</text>
+          <text x="85" y="94" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">Leaves baby-smooth glass skin</text>
         </g>
 
-        <!-- Benefit 4 -->
-        <g transform="translate(40, 314)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.purple}" text-anchor="middle">💧</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">3x Skincare Absorption</text>
-          <text x="75" y="52" font-family="${FONT.sans}" font-weight="600" font-size="17" fill="${BRAND.charcoalText}">Serums, hyaluronic acid, and creams penetrate deeply for true glass skin.</text>
+        <!-- Card 4 -->
+        <g transform="translate(495, 160)">
+          <rect width="465" height="145" rx="20" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+          <circle cx="45" cy="45" r="24" fill="${BRAND.softLavender}"/>
+          <text x="45" y="53" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.purple}" text-anchor="middle">💧</text>
+          <text x="85" y="42" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.deepPlum}">3x Better Absorption</text>
+          <text x="85" y="70" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">Serums penetrate deeply</text>
+          <text x="85" y="94" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">Foundation applies like butter</text>
         </g>
       </g>
 
@@ -748,7 +809,8 @@ export function renderPost6(outputPath = path.join(GENERATED_DIR, 'post_6_static
   return renderSvgToPng(svg, outputPath);
 }
 
-// Post 7: GRWM Transformation (Reel 9:16, 1080x1920)
+// Post 7: GRWM Transformation & Mistakes (Reel 9:16, 1080x1920)
+// High-urgency hook with 3 warning pills directly over visual
 export function renderPost7(
   coverPngPath = path.join(GENERATED_DIR, 'post_7_reel.png'),
   reelMp4Path = path.join(GENERATED_DIR, 'post_7_reel.mp4')
@@ -763,66 +825,55 @@ export function renderPost7(
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p7Clip"><rect x="60" y="320" width="960" height="880" rx="36" ry="36"/></clipPath>
+        <clipPath id="p7Clip"><rect x="60" y="300" width="960" height="1280" rx="36" ry="36"/></clipPath>
       </defs>
       <rect width="1080" height="1920" fill="url(#bgWarmGrad)"/>
-      ${drawTopBadgeReel('SUNDAY NIGHT RESET 🧖‍♀️', 70)}
+      ${drawTopBadgeReel('SKINCARE MISTAKES ⚠️', 70)}
 
       <!-- Headline -->
-      <text x="60" y="200" font-family="${FONT.sans}" font-weight="900" font-size="50" fill="${BRAND.deepPlum}">GRWM But First…</text>
-      <text x="60" y="265" font-family="${FONT.sans}" font-weight="900" font-size="50" fill="${BRAND.purple}">Peach Fuzz Has To Go! ✨</text>
+      <text x="60" y="195" font-family="${FONT.sans}" font-weight="900" font-size="50" fill="${BRAND.deepPlum}">3 Shaving Mistakes That</text>
+      <text x="60" y="260" font-family="${FONT.sans}" font-weight="900" font-size="50" fill="#DC2626">Are Ruining Your Skin ❌</text>
 
       <!-- Real Macro Studio Asset: White Wheat-Straw Razor -->
       <g filter="url(#softShadow)">
         <g clip-path="url(#p7Clip)">
-          <image href="${photoB64}" x="60" y="240" width="960" height="1000" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${photoB64}" x="60" y="240" width="960" height="1360" preserveAspectRatio="xMidYMid slice"/>
+
+          <!-- Floating Badges on Photo -->
+          <g transform="translate(95, 335)">
+            <rect width="330" height="48" rx="24" fill="rgba(255, 255, 255, 0.95)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
+            <text x="165" y="30" font-family="${FONT.sans}" font-weight="800" font-size="16" fill="${BRAND.purple}" text-anchor="middle">🌸 STEP 0 IN MAKEUP PREP</text>
+          </g>
+
+          <!-- 3 High-Impact Warning Pills Over Photo -->
+          <g transform="translate(90, 1020)">
+            <rect width="895" height="70" rx="20" fill="rgba(220, 38, 38, 0.92)"/>
+            <text x="35" y="44" font-family="${FONT.sans}" font-weight="900" font-size="22" fill="#FFFFFF">❌ MISTAKE 1: Shaving over makeup or unwashed skin</text>
+          </g>
+
+          <g transform="translate(90, 1110)">
+            <rect width="895" height="70" rx="20" fill="rgba(220, 38, 38, 0.92)"/>
+            <text x="35" y="44" font-family="${FONT.sans}" font-weight="900" font-size="22" fill="#FFFFFF">❌ MISTAKE 2: Wrong blade angle (Always hold strictly at 45° 📐)</text>
+          </g>
+
+          <g transform="translate(90, 1200)">
+            <rect width="895" height="70" rx="20" fill="rgba(220, 38, 38, 0.92)"/>
+            <text x="35" y="44" font-family="${FONT.sans}" font-weight="900" font-size="22" fill="#FFFFFF">❌ MISTAKE 3: Pressing too hard (Let the micro-guard glide!)</text>
+          </g>
+
+          <g transform="translate(90, 1290)">
+            <rect width="895" height="70" rx="20" fill="rgba(46, 125, 50, 0.94)"/>
+            <text x="447" y="44" font-family="${FONT.sans}" font-weight="900" font-size="22" fill="#FFFFFF" text-anchor="middle">✓ THE FIX: Girlies Glow White Razor with Stainless Safety Ribs</text>
+          </g>
         </g>
-        <rect x="60" y="320" width="960" height="880" rx="36" ry="36" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
-      </g>
-
-      <!-- Floating Badge on Photo -->
-      <g transform="translate(90, 360)">
-        <rect width="310" height="48" rx="24" fill="rgba(255, 255, 255, 0.95)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
-        <text x="155" y="30" font-family="${FONT.sans}" font-weight="800" font-size="16" fill="${BRAND.purple}" text-anchor="middle">🌸 STEP 0 IN EVERY MAKEUP PREP</text>
-      </g>
-
-      <!-- 3-Step Glass Skin Guide -->
-      <g transform="translate(60, 1230)" filter="url(#softShadow)">
-        <rect width="960" height="420" rx="32" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-
-        <!-- Routine Step 1 -->
-        <g transform="translate(40, 35)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="900" font-size="20" fill="${BRAND.purple}" text-anchor="middle">01</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Wash &amp; Apply Facial Oil</text>
-          <text x="75" y="55" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">2 drops of squalane or aloe gel give the razor effortless glide.</text>
-        </g>
-
-        <!-- Routine Step 2 -->
-        <g transform="translate(40, 135)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="900" font-size="20" fill="${BRAND.purple}" text-anchor="middle">02</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Girlies Glow At 45° Angle</text>
-          <text x="75" y="55" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Pull skin taut, use light downward strokes. Watch peach fuzz melt away.</text>
-        </g>
-
-        <!-- Routine Step 3 -->
-        <g transform="translate(40, 235)">
-          <circle cx="28" cy="28" r="28" fill="${BRAND.softLavender}"/>
-          <text x="28" y="36" font-family="${FONT.sans}" font-weight="900" font-size="20" fill="${BRAND.purple}" text-anchor="middle">03</text>
-          <text x="75" y="26" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Barrier Cream &amp; Sleep</text>
-          <text x="75" y="55" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Hydrate deeply. Wake up with ultra-soft, reflective glass skin!</text>
-        </g>
-
-        <rect x="40" y="325" width="880" height="65" rx="18" fill="${BRAND.softLavender}"/>
-        <text x="480" y="365" font-family="${FONT.sans}" font-weight="800" font-size="19" fill="${BRAND.purple}" text-anchor="middle">💄 Next Morning: Foundation Glides On Seamlessly Like A Filter</text>
+        <rect x="60" y="300" width="960" height="1280" rx="36" ry="36" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <!-- Bottom Order Pill -->
-      <g transform="translate(60, 1680)" filter="url(#softShadow)">
-        <rect width="960" height="150" rx="36" fill="url(#greenGrad)"/>
-        <text x="480" y="65" font-family="${FONT.sans}" font-weight="900" font-size="30" fill="${BRAND.white}" text-anchor="middle">Rs. 599 • CASH ON DELIVERY NATIONWIDE</text>
-        <text x="480" y="105" font-family="${FONT.sans}" font-weight="700" font-size="20" fill="${BRAND.white}" text-anchor="middle">Tap link in bio or DM @girli_esglow to get yours</text>
+      <g transform="translate(60, 1650)" filter="url(#softShadow)">
+        <rect width="960" height="160" rx="36" fill="url(#greenGrad)"/>
+        <text x="480" y="65" font-family="${FONT.sans}" font-weight="900" font-size="32" fill="${BRAND.white}" text-anchor="middle">Rs. 599 • CASH ON DELIVERY NATIONWIDE 🇵🇰</text>
+        <text x="480" y="110" font-family="${FONT.sans}" font-weight="700" font-size="22" fill="${BRAND.white}" text-anchor="middle">Tap link in bio or DM @girli_esglow to get yours</text>
       </g>
     </svg>
   `;
@@ -833,13 +884,12 @@ export function renderPost7(
   return coverPngPath;
 }
 
-// Post 8: How to Use (Beginner Guide Carousel 5 slides, each 1080x1350)
+// Post 8: How to Use Beginner Guide Carousel (5 slides, each 1080x1350)
+// 80%+ visual photography, punchy 1-line steps, clean swipe prompts, zero paragraph walls
 export function renderPost8(outputDir = GENERATED_DIR) {
   const mirrorB64 = getAssetBase64('Card 4.png');
   const cleanSkinB64 = getAssetBase64('Card 6.png');
-  // Use authentic WHITE razor head macro
   const bladeMacroB64 = getAssetBase64('packaging section three.png');
-  // Use authentic hand holding WHITE razor
   const razorHandB64 = getAssetBase64('packaging section two.png');
   const hydrateB64 = getAssetBase64('Section 1.png');
 
@@ -847,7 +897,7 @@ export function renderPost8(outputDir = GENERATED_DIR) {
   const svg1 = `
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
-      <defs><clipPath id="p8s1Clip"><rect x="60" y="240" width="960" height="690" rx="28" ry="28"/></clipPath></defs>
+      <defs><clipPath id="p8s1Clip"><rect x="60" y="240" width="960" height="770" rx="28" ry="28"/></clipPath></defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('DERMAPLANING 101', 52)}
 
@@ -856,20 +906,24 @@ export function renderPost8(outputDir = GENERATED_DIR) {
 
       <g filter="url(#softShadow)">
         <g clip-path="url(#p8s1Clip)">
-          <image href="${mirrorB64}" x="60" y="200" width="960" height="780" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${mirrorB64}" x="60" y="200" width="960" height="820" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="240" width="960" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="770" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
-      <g transform="translate(60, 960)" filter="url(#softShadow)">
-        <rect width="960" height="235" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-        <text x="40" y="55" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">4 Simple Steps To Glow At Home</text>
-        <text x="40" y="95" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">No pain, no cuts, no stubble. Dermaplaning is the gentlest way</text>
-        <text x="40" y="125" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">to exfoliate dead skin and remove peach fuzz for radiant skin.</text>
+      <g transform="translate(90, 275)">
+        <rect width="320" height="44" rx="22" fill="rgba(255, 255, 255, 0.95)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
+        <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🌸 4 SIMPLE BEGINNER STEPS</text>
+      </g>
+
+      <g transform="translate(60, 1040)" filter="url(#softShadow)">
+        <rect width="960" height="155" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+        <text x="40" y="45" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Zero Pain • Zero Cuts • Zero Stubble</text>
+        <text x="40" y="78" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Dermaplaning is the gentlest way to achieve glowing glass skin at home.</text>
         
-        <g transform="translate(40, 155)">
-          <rect width="880" height="52" rx="16" fill="${BRAND.softLavender}"/>
-          <text x="440" y="33" font-family="${FONT.sans}" font-weight="800" font-size="17" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO START STEP 1 👉</text>
+        <g transform="translate(40, 95)">
+          <rect width="880" height="42" rx="14" fill="${BRAND.softLavender}"/>
+          <text x="440" y="27" font-family="${FONT.sans}" font-weight="900" font-size="15" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO START STEP 1 👉</text>
         </g>
       </g>
       ${drawBottomPricingBar(1225)}
@@ -880,7 +934,7 @@ export function renderPost8(outputDir = GENERATED_DIR) {
   const svg2 = `
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
-      <defs><clipPath id="p8s2Clip"><rect x="60" y="240" width="960" height="690" rx="28" ry="28"/></clipPath></defs>
+      <defs><clipPath id="p8s2Clip"><rect x="60" y="240" width="960" height="770" rx="28" ry="28"/></clipPath></defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('STEP 01 • PREPARATION', 52)}
 
@@ -889,20 +943,24 @@ export function renderPost8(outputDir = GENERATED_DIR) {
 
       <g filter="url(#softShadow)">
         <g clip-path="url(#p8s2Clip)">
-          <image href="${cleanSkinB64}" x="60" y="200" width="960" height="780" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${cleanSkinB64}" x="60" y="200" width="960" height="820" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="240" width="960" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="770" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
-      <g transform="translate(60, 960)" filter="url(#softShadow)">
-        <rect width="960" height="235" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-        <text x="40" y="55" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">Clean Canvas Is Essential</text>
-        <text x="40" y="95" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Wash with a gentle cleanser. Pat completely dry with a clean towel.</text>
-        <text x="40" y="125" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Beginners can apply 2 drops of squalane oil for extra smooth blade glide.</text>
+      <g transform="translate(90, 275)">
+        <rect width="280" height="44" rx="22" fill="rgba(31, 16, 48, 0.88)"/>
+        <text x="140" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="#FFFFFF" text-anchor="middle">🧴 CLEAN CANVAS ONLY</text>
+      </g>
+
+      <g transform="translate(60, 1040)" filter="url(#softShadow)">
+        <rect width="960" height="155" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+        <text x="40" y="45" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Wash with a Gentle Cleanser &amp; Pat 100% Dry</text>
+        <text x="40" y="78" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Beginners can apply 2 drops of facial oil for ultra-smooth blade glide.</text>
         
-        <g transform="translate(40, 155)">
-          <rect width="880" height="52" rx="16" fill="${BRAND.softLavender}"/>
-          <text x="440" y="33" font-family="${FONT.sans}" font-weight="800" font-size="17" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO STEP 2 (THE ANGLE) 👉</text>
+        <g transform="translate(40, 95)">
+          <rect width="880" height="42" rx="14" fill="${BRAND.softLavender}"/>
+          <text x="440" y="27" font-family="${FONT.sans}" font-weight="900" font-size="15" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO STEP 2 (THE ANGLE) 👉</text>
         </g>
       </g>
       ${drawBottomPricingBar(1225)}
@@ -913,7 +971,7 @@ export function renderPost8(outputDir = GENERATED_DIR) {
   const svg3 = `
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
-      <defs><clipPath id="p8s3Clip"><rect x="60" y="240" width="960" height="690" rx="28" ry="28"/></clipPath></defs>
+      <defs><clipPath id="p8s3Clip"><rect x="60" y="240" width="960" height="770" rx="28" ry="28"/></clipPath></defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('STEP 02 • THE TECHNIQUE', 52)}
 
@@ -922,25 +980,24 @@ export function renderPost8(outputDir = GENERATED_DIR) {
 
       <g filter="url(#softShadow)">
         <g clip-path="url(#p8s3Clip)">
-          <image href="${bladeMacroB64}" x="60" y="200" width="960" height="780" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${bladeMacroB64}" x="60" y="200" width="960" height="820" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="240" width="960" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="770" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <g transform="translate(90, 275)">
-        <rect width="320" height="44" rx="22" fill="rgba(255, 255, 255, 0.94)" stroke="rgba(104, 61, 169, 0.2)" stroke-width="1.5"/>
-        <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🛡️ STAINLESS MICRO-GUARD</text>
+        <rect width="320" height="44" rx="22" fill="url(#greenGrad)"/>
+        <text x="160" y="28" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#FFFFFF" text-anchor="middle">🛡️ STAINLESS MICRO-GUARD</text>
       </g>
 
-      <g transform="translate(60, 960)" filter="url(#softShadow)">
-        <rect width="960" height="235" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-        <text x="40" y="55" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">The Golden Rule of Dermaplaning</text>
-        <text x="40" y="95" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Use fingers from your free hand to gently pull your cheek taut.</text>
-        <text x="40" y="125" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Angle the Girlies Glow razor at 45° so the micro-guard protects your skin.</text>
+      <g transform="translate(60, 1040)" filter="url(#softShadow)">
+        <rect width="960" height="155" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+        <text x="40" y="45" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">The Golden Rule of Dermaplaning</text>
+        <text x="40" y="78" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Pull cheek taut with free hand. Angle razor at 45° so micro-guard protects you.</text>
         
-        <g transform="translate(40, 155)">
-          <rect width="880" height="52" rx="16" fill="${BRAND.softLavender}"/>
-          <text x="440" y="33" font-family="${FONT.sans}" font-weight="800" font-size="17" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO STEP 3 (THE STROKES) 👉</text>
+        <g transform="translate(40, 95)">
+          <rect width="880" height="42" rx="14" fill="${BRAND.softLavender}"/>
+          <text x="440" y="27" font-family="${FONT.sans}" font-weight="900" font-size="15" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO STEP 3 (THE STROKES) 👉</text>
         </g>
       </g>
       ${drawBottomPricingBar(1225)}
@@ -951,7 +1008,7 @@ export function renderPost8(outputDir = GENERATED_DIR) {
   const svg4 = `
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
-      <defs><clipPath id="p8s4Clip"><rect x="60" y="240" width="960" height="690" rx="28" ry="28"/></clipPath></defs>
+      <defs><clipPath id="p8s4Clip"><rect x="60" y="240" width="960" height="770" rx="28" ry="28"/></clipPath></defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('STEP 03 • THE GLIDE', 52)}
 
@@ -960,9 +1017,9 @@ export function renderPost8(outputDir = GENERATED_DIR) {
 
       <g filter="url(#softShadow)">
         <g clip-path="url(#p8s4Clip)">
-          <image href="${razorHandB64}" x="60" y="200" width="960" height="780" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${razorHandB64}" x="60" y="200" width="960" height="820" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="240" width="960" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="770" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <g transform="translate(90, 275)">
@@ -970,15 +1027,14 @@ export function renderPost8(outputDir = GENERATED_DIR) {
         <text x="160" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.purple}" text-anchor="middle">🌾 AUTHENTIC WHITE RAZOR</text>
       </g>
 
-      <g transform="translate(60, 960)" filter="url(#softShadow)">
-        <rect width="960" height="235" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-        <text x="40" y="55" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">Gentle, Short Feather Strokes</text>
-        <text x="40" y="95" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Move in short downward strokes following hair growth. Wipe blade periodically.</text>
-        <text x="40" y="125" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Watch peach fuzz and dull dead skin cells cleanly sweep away!</text>
+      <g transform="translate(60, 1040)" filter="url(#softShadow)">
+        <rect width="960" height="155" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+        <text x="40" y="45" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Short, Feather-Light Downward Glides</text>
+        <text x="40" y="78" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Watch peach fuzz and dull dead skin cleanly sweep away with zero irritation!</text>
         
-        <g transform="translate(40, 155)">
-          <rect width="880" height="52" rx="16" fill="${BRAND.softLavender}"/>
-          <text x="440" y="33" font-family="${FONT.sans}" font-weight="800" font-size="17" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO STEP 4 (AFTERCARE) 👉</text>
+        <g transform="translate(40, 95)">
+          <rect width="880" height="42" rx="14" fill="${BRAND.softLavender}"/>
+          <text x="440" y="27" font-family="${FONT.sans}" font-weight="900" font-size="15" fill="${BRAND.purple}" text-anchor="middle">SWIPE TO STEP 4 (AFTERCARE) 👉</text>
         </g>
       </g>
       ${drawBottomPricingBar(1225)}
@@ -989,7 +1045,7 @@ export function renderPost8(outputDir = GENERATED_DIR) {
   const svg5 = `
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
-      <defs><clipPath id="p8s5Clip"><rect x="60" y="240" width="960" height="690" rx="28" ry="28"/></clipPath></defs>
+      <defs><clipPath id="p8s5Clip"><rect x="60" y="240" width="960" height="770" rx="28" ry="28"/></clipPath></defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('STEP 04 • AFTERCARE &amp; GLOW', 52)}
 
@@ -998,20 +1054,24 @@ export function renderPost8(outputDir = GENERATED_DIR) {
 
       <g filter="url(#softShadow)">
         <g clip-path="url(#p8s5Clip)">
-          <image href="${hydrateB64}" x="60" y="200" width="960" height="780" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${hydrateB64}" x="60" y="200" width="960" height="820" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="60" y="240" width="960" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="60" y="240" width="960" height="770" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
-      <g transform="translate(60, 960)" filter="url(#softShadow)">
-        <rect width="960" height="235" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-        <text x="40" y="55" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">Skip Active Acids For 24 Hours</text>
-        <text x="40" y="95" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Apply your favorite ceramide cream or hyaluronic serum.</text>
-        <text x="40" y="125" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">Wipe razor with alcohol, snap the cap on, and store safely!</text>
+      <g transform="translate(90, 275)">
+        <rect width="320" height="44" rx="22" fill="url(#greenGrad)"/>
+        <text x="160" y="28" font-family="${FONT.sans}" font-weight="900" font-size="14" fill="#FFFFFF" text-anchor="middle">✨ RADIANT GLASS SKIN RESULT</text>
+      </g>
+
+      <g transform="translate(60, 1040)" filter="url(#softShadow)">
+        <rect width="960" height="155" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
+        <text x="40" y="45" font-family="${FONT.sans}" font-weight="800" font-size="24" fill="${BRAND.deepPlum}">Apply Barrier Cream &amp; Store Razor Safely</text>
+        <text x="40" y="78" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Wipe blade with alcohol, snap cap on. Ready for your next routine in 2-3 weeks!</text>
         
-        <g transform="translate(40, 155)">
-          <rect width="880" height="52" rx="16" fill="url(#greenGrad)"/>
-          <text x="440" y="33" font-family="${FONT.sans}" font-weight="900" font-size="19" fill="${BRAND.white}" text-anchor="middle">ORDER YOUR SET FOR Rs. 599 • CASH ON DELIVERY 🇵🇰</text>
+        <g transform="translate(40, 95)">
+          <rect width="880" height="45" rx="14" fill="url(#greenGrad)"/>
+          <text x="440" y="29" font-family="${FONT.sans}" font-weight="900" font-size="17" fill="${BRAND.white}" text-anchor="middle">ORDER YOUR SET FOR Rs. 599 • CASH ON DELIVERY 🇵🇰</text>
         </g>
       </g>
       ${drawBottomPricingBar(1225)}
@@ -1027,6 +1087,7 @@ export function renderPost8(outputDir = GENERATED_DIR) {
 }
 
 // Post 9: Real Results / Before & After (Static 4:5, 1080x1350)
+// Authentic Before/After cheek split with glowing skin contrast
 export function renderPost9(outputPath = path.join(GENERATED_DIR, 'post_9_static.png')) {
   // Use authentic side-by-side Before/After cheek asset
   const photoB64 = getAssetBase64('card 3.png');
@@ -1035,7 +1096,7 @@ export function renderPost9(outputPath = path.join(GENERATED_DIR, 'post_9_static
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p9Clip"><rect x="60" y="240" width="960" height="610" rx="28" ry="28"/></clipPath>
+        <clipPath id="p9Clip"><rect x="60" y="240" width="960" height="740" rx="28" ry="28"/></clipPath>
       </defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('REAL RESULTS • UNFILTERED', 52)}
@@ -1046,48 +1107,38 @@ export function renderPost9(outputPath = path.join(GENERATED_DIR, 'post_9_static
       <!-- Real Before & After Studio Asset (card 3) -->
       <g filter="url(#softShadow)">
         <g clip-path="url(#p9Clip)">
-          <image href="${photoB64}" x="60" y="200" width="960" height="700" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${photoB64}" x="60" y="200" width="960" height="800" preserveAspectRatio="xMidYMid slice"/>
+
+          <!-- Center Divider Line -->
+          <line x1="540" y1="240" x2="540" y2="980" stroke="#FFFFFF" stroke-width="4" opacity="0.9"/>
+
+          <!-- Floating Badges Directly on Photo -->
+          <g transform="translate(90, 275)">
+            <rect width="240" height="44" rx="22" fill="rgba(31, 16, 48, 0.90)"/>
+            <text x="120" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.white}" text-anchor="middle">❌ BEFORE: PEACH FUZZ</text>
+          </g>
+
+          <g transform="translate(730, 275)">
+            <rect width="240" height="44" rx="22" fill="rgba(46, 125, 50, 0.94)"/>
+            <text x="120" y="28" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.white}" text-anchor="middle">✓ AFTER: GLASS SKIN ✨</text>
+          </g>
         </g>
-        <rect x="60" y="240" width="960" height="610" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
-        
-        <!-- Center Divider Line -->
-        <line x1="540" y1="240" x2="540" y2="850" stroke="#FFFFFF" stroke-width="3" opacity="0.8"/>
+        <rect x="60" y="240" width="960" height="740" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
-      <!-- Floating Labels on Before & After -->
-      <g transform="translate(90, 275)">
-        <rect width="210" height="42" rx="21" fill="rgba(31, 16, 48, 0.88)"/>
-        <text x="105" y="27" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.white}" text-anchor="middle">BEFORE: PEACH FUZZ</text>
-      </g>
+      <!-- Review Card Below Photo -->
+      <g transform="translate(60, 1010)" filter="url(#softShadow)">
+        <rect width="960" height="185" rx="24" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
 
-      <g transform="translate(570, 275)">
-        <rect width="220" height="42" rx="21" fill="rgba(46, 125, 50, 0.92)"/>
-        <text x="110" y="27" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="${BRAND.white}" text-anchor="middle">AFTER: GLASS SKIN ✨</text>
-      </g>
-
-      <!-- Review Card -->
-      <g transform="translate(60, 875)" filter="url(#softShadow)">
-        <rect width="960" height="325" rx="28" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="1.5"/>
-
-        <g transform="translate(45, 35)">
-          ${drawGoldStars(20, 20, 28, 38)}
-          <rect x="230" y="2" width="180" height="38" rx="19" fill="#ECFDF5"/>
-          <text x="320" y="26" font-family="${FONT.sans}" font-weight="800" font-size="15" fill="#047857" text-anchor="middle">VERIFIED BUYER ✓</text>
+        <g transform="translate(40, 25)">
+          ${drawGoldStars(20, 20, 26, 34)}
+          <rect x="210" y="2" width="180" height="36" rx="18" fill="#ECFDF5"/>
+          <text x="300" y="25" font-family="${FONT.sans}" font-weight="800" font-size="14" fill="#047857" text-anchor="middle">VERIFIED BUYER ✓</text>
         </g>
 
-        <g transform="translate(45, 95)">
-          <text x="0" y="32" font-family="${FONT.sans}" font-weight="800" font-size="26" fill="${BRAND.deepPlum}">“No filter, no editing. My makeup glides on like silk now!”</text>
-          <text x="0" y="72" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">“I was terrified to shave my face because of the old myth. But Girlies Glow has</text>
-          <text x="0" y="104" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.charcoalText}">completely transformed my skin texture. Best Rs. 599 I ever spent!”</text>
-        </g>
-
-        <!-- Customer Signature -->
-        <g transform="translate(45, 240)">
-          <circle cx="25" cy="25" r="25" fill="${BRAND.softLavender}"/>
-          <text x="25" y="33" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="${BRAND.purple}" text-anchor="middle">M</text>
-          <text x="65" y="24" font-family="${FONT.sans}" font-weight="800" font-size="20" fill="${BRAND.deepPlum}">Mahnoor R. — Karachi</text>
-          <text x="65" y="46" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="${BRAND.mutedText}">Verified Customer • Cash on Delivery</text>
-        </g>
+        <text x="40" y="85" font-family="${FONT.sans}" font-weight="800" font-size="22" fill="${BRAND.deepPlum}">“Zero filter. My makeup glides on like melted butter now!”</text>
+        <text x="40" y="118" font-family="${FONT.sans}" font-weight="600" font-size="17" fill="${BRAND.charcoalText}">“I was terrified because of the myth, but Girlies Glow completely smoothed my texture!”</text>
+        <text x="40" y="148" font-family="${FONT.sans}" font-weight="700" font-size="16" fill="${BRAND.purple}">— Mahnoor R., Karachi • Cash on Delivery Order</text>
       </g>
 
       ${drawBottomPricingBar(1225)}
@@ -1098,6 +1149,7 @@ export function renderPost9(outputPath = path.join(GENERATED_DIR, 'post_9_static
 }
 
 // Post 10: Special Launch Offer (Static 4:5, 1080x1350)
+// High-conversion visual offer: 40% OFF, Rs. 599, COD, authentic travertine pack photography
 export function renderPost10(outputPath = path.join(GENERATED_DIR, 'post_10_offer.png')) {
   // Use authentic WHITE razors with kraft packaging on travertine
   const photoB64 = getAssetBase64('Section 1.png');
@@ -1106,7 +1158,7 @@ export function renderPost10(outputPath = path.join(GENERATED_DIR, 'post_10_offe
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
       ${getSvgDefs()}
       <defs>
-        <clipPath id="p10Clip"><rect x="490" y="40" width="430" height="690" rx="28" ry="28"/></clipPath>
+        <clipPath id="p10Clip"><rect x="490" y="40" width="430" height="710" rx="28" ry="28"/></clipPath>
       </defs>
       <rect width="1080" height="1350" fill="url(#bgWarmGrad)"/>
       ${drawTopBadge('EXCLUSIVE LAUNCH OFFER ⚡', 52)}
@@ -1115,7 +1167,7 @@ export function renderPost10(outputPath = path.join(GENERATED_DIR, 'post_10_offe
       <text x="60" y="205" font-family="${FONT.sans}" font-weight="900" font-size="46" fill="${BRAND.purple}">Girlies Glow At-Home Dermaplaning Pack 🌸</text>
 
       <!-- Center Offer Container -->
-      <g transform="translate(60, 260)" filter="url(#softShadow)">
+      <g transform="translate(60, 255)" filter="url(#softShadow)">
         <rect width="960" height="785" rx="32" fill="${BRAND.white}" stroke="${BRAND.borderLight}" stroke-width="2"/>
 
         <!-- Left Details Column -->
@@ -1130,30 +1182,30 @@ export function renderPost10(outputPath = path.join(GENERATED_DIR, 'post_10_offe
           <text x="0" y="140" font-family="${FONT.sans}" font-weight="600" font-size="18" fill="${BRAND.mutedText}">Complete 3-piece eco wheat-straw set (White)</text>
 
           <!-- Features Checklist -->
-          <g transform="translate(0, 185)">
+          <g transform="translate(0, 180)">
             <circle cx="16" cy="16" r="14" fill="${BRAND.leafGreen}"/>
             <text x="16" y="22" font-family="${FONT.sans}" font-weight="900" font-size="16" fill="${BRAND.white}" text-anchor="middle">✓</text>
-            <text x="42" y="23" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">3x Biodegradable Wheat-Straw Razors (White)</text>
+            <text x="42" y="23" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">3x Biodegradable Razors (White)</text>
 
-            <circle cx="16" cy="66" r="14" fill="${BRAND.leafGreen}"/>
-            <text x="16" y="72" font-family="${FONT.sans}" font-weight="900" font-size="16" fill="${BRAND.white}" text-anchor="middle">✓</text>
-            <text x="42" y="73" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">Precision Stainless Micro-Guard Blades</text>
+            <circle cx="16" cy="68" r="14" fill="${BRAND.leafGreen}"/>
+            <text x="16" y="74" font-family="${FONT.sans}" font-weight="900" font-size="16" fill="${BRAND.white}" text-anchor="middle">✓</text>
+            <text x="42" y="75" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">Stainless Micro-Guard Blades</text>
 
-            <circle cx="16" cy="116" r="14" fill="${BRAND.leafGreen}"/>
-            <text x="16" y="122" font-family="${FONT.sans}" font-weight="900" font-size="16" fill="${BRAND.white}" text-anchor="middle">✓</text>
-            <text x="42" y="123" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">Zero Cuts &amp; Safe For Sensitive Skin</text>
+            <circle cx="16" cy="120" r="14" fill="${BRAND.leafGreen}"/>
+            <text x="16" y="126" font-family="${FONT.sans}" font-weight="900" font-size="16" fill="${BRAND.white}" text-anchor="middle">✓</text>
+            <text x="42" y="127" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">Zero Cuts &amp; Safe For Sensitive Skin</text>
 
-            <circle cx="16" cy="166" r="14" fill="${BRAND.leafGreen}"/>
-            <text x="16" y="172" font-family="${FONT.sans}" font-weight="900" font-size="16" fill="${BRAND.white}" text-anchor="middle">✓</text>
-            <text x="42" y="173" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">Protective Travel Caps Included</text>
+            <circle cx="16" cy="172" r="14" fill="${BRAND.leafGreen}"/>
+            <text x="16" y="178" font-family="${FONT.sans}" font-weight="900" font-size="16" fill="${BRAND.white}" text-anchor="middle">✓</text>
+            <text x="42" y="179" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">Protective Travel Caps Included</text>
 
-            <circle cx="16" cy="216" r="14" fill="${BRAND.leafGreen}"/>
-            <text x="16" y="222" font-family="${FONT.sans}" font-weight="900" font-size="16" fill="${BRAND.white}" text-anchor="middle">✓</text>
-            <text x="42" y="223" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">Eco-Friendly Kraft Packaging Box</text>
+            <circle cx="16" cy="224" r="14" fill="${BRAND.leafGreen}"/>
+            <text x="16" y="230" font-family="${FONT.sans}" font-weight="900" font-size="16" fill="${BRAND.white}" text-anchor="middle">✓</text>
+            <text x="42" y="231" font-family="${FONT.sans}" font-weight="700" font-size="19" fill="${BRAND.deepPlum}">Eco Kraft Packaging Box</text>
           </g>
 
           <!-- Delivery Stamp -->
-          <g transform="translate(0, 460)">
+          <g transform="translate(0, 465)">
             <rect width="385" height="95" rx="18" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1.5"/>
             <text x="25" y="38" font-family="${FONT.sans}" font-weight="800" font-size="18" fill="#14532D">🚚 CASH ON DELIVERY NATIONWIDE</text>
             <text x="25" y="68" font-family="${FONT.sans}" font-weight="600" font-size="15" fill="#166534">Karachi, Lahore, Islamabad &amp; all cities 🇵🇰</text>
@@ -1162,13 +1214,13 @@ export function renderPost10(outputPath = path.join(GENERATED_DIR, 'post_10_offe
 
         <!-- Right Image Column (Section 1 asset) -->
         <g clip-path="url(#p10Clip)">
-          <image href="${photoB64}" x="480" y="40" width="460" height="690" preserveAspectRatio="xMidYMid slice"/>
+          <image href="${photoB64}" x="480" y="40" width="460" height="710" preserveAspectRatio="xMidYMid slice"/>
         </g>
-        <rect x="490" y="40" width="430" height="690" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
+        <rect x="490" y="40" width="430" height="710" rx="28" ry="28" fill="none" stroke="${BRAND.borderLight}" stroke-width="2"/>
       </g>
 
       <!-- Bottom Order Button -->
-      <g transform="translate(60, 1075)" filter="url(#softShadow)">
+      <g transform="translate(60, 1065)" filter="url(#softShadow)">
         <rect width="960" height="190" rx="36" fill="url(#greenGrad)"/>
         <text x="480" y="70" font-family="${FONT.sans}" font-weight="900" font-size="32" fill="${BRAND.white}" text-anchor="middle">DM @girli_esglow TO ORDER NOW ⚡</text>
         <text x="480" y="112" font-family="${FONT.sans}" font-weight="700" font-size="22" fill="${BRAND.white}" text-anchor="middle">Only Rs. 599 • Pay when it arrives at your doorstep</text>
@@ -1204,7 +1256,7 @@ export function generateCreativeForPost(postId) {
 // Generate all creatives
 export function generateAllCreatives() {
   fs.mkdirSync(GENERATED_DIR, { recursive: true });
-  console.log('Generating Sayuri-grade editorial creatives for Girlies Glow...');
+  console.log('Generating Sayuri-grade visual-first creatives for Girlies Glow...');
 
   const results = [];
   results.push(renderPost1());
@@ -1218,7 +1270,7 @@ export function generateAllCreatives() {
   results.push(renderPost9());
   results.push(renderPost10());
 
-  console.log(`✓ All 10 Sayuri-grade creatives generated in ${GENERATED_DIR}`);
+  console.log(`✓ All 10 visual-first creatives generated in ${GENERATED_DIR}`);
   return results;
 }
 
