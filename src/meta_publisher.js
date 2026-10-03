@@ -76,19 +76,62 @@ export async function verifyMetaConnection(overrideConfig = {}) {
 
   try {
     let resolvedPageToken = cfg.accessToken;
-    let resolvedPageId = cfg.pageId || '61592791861631';
+    let resolvedPageId = '61592791861631';
     let resolvedPageName = 'Girlies Glow';
-    let resolvedIgId = cfg.igUserId || '';
+    let resolvedIgId = cfg.igUserId || '17841434751103617';
 
-    // 1. Direct check with /me using token
+    // 1. Check /me/accounts in case a User Access Token was entered
     try {
-      const meUrl = `https://graph.facebook.com/v19.0/me?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
+      const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,category,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
+      const accountsRes = await fetch(accountsUrl);
+      const accountsData = await accountsRes.json();
+      if (accountsRes.ok && Array.isArray(accountsData.data) && accountsData.data.length > 0) {
+        const ggPage = accountsData.data.find(
+          p => String(p.id) === '61592791861631' ||
+               (p.name && p.name.toLowerCase().includes('girlies glow'))
+        ) || accountsData.data[0];
+
+        if (ggPage) {
+          if (ggPage.access_token) resolvedPageToken = ggPage.access_token;
+          if (ggPage.id) resolvedPageId = ggPage.id;
+          if (ggPage.name) resolvedPageName = ggPage.name;
+          if (ggPage.instagram_business_account?.id) {
+            resolvedIgId = ggPage.instagram_business_account.id;
+          } else if (ggPage.connected_instagram_account?.id) {
+            resolvedIgId = ggPage.connected_instagram_account.id;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Direct check /{resolvedPageId} using current or resolved token
+    try {
+      const pageUrl = `https://graph.facebook.com/v19.0/${resolvedPageId}?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(resolvedPageToken)}`;
+      const pageRes = await fetch(pageUrl);
+      const pageData = await pageRes.json();
+      if (pageRes.ok && pageData) {
+        if (pageData.name) resolvedPageName = pageData.name;
+        if (pageData.access_token) resolvedPageToken = pageData.access_token;
+        if (pageData.instagram_business_account?.id) {
+          resolvedIgId = pageData.instagram_business_account.id;
+        } else if (pageData.connected_instagram_account?.id) {
+          resolvedIgId = pageData.connected_instagram_account.id;
+        }
+      }
+    } catch (_) {}
+
+    // 3. Check /me to see if token itself is already a Page Token
+    try {
+      const meUrl = `https://graph.facebook.com/v19.0/me?fields=id,name,category,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(resolvedPageToken)}`;
       const meRes = await fetch(meUrl);
       const meData = await meRes.json();
       if (meRes.ok && meData) {
-        if (meData.id) resolvedPageId = meData.id;
-        if (meData.name) resolvedPageName = meData.name;
-        if (meData.access_token) resolvedPageToken = meData.access_token;
+        // Only accept /me as Page if it has a category or matches Girlies Glow Page ID
+        if (meData.category || String(meData.id) === '61592791861631') {
+          resolvedPageId = meData.id;
+          if (meData.name) resolvedPageName = meData.name;
+          if (meData.access_token) resolvedPageToken = meData.access_token;
+        }
         if (meData.instagram_business_account?.id) {
           resolvedIgId = meData.instagram_business_account.id;
         } else if (meData.connected_instagram_account?.id) {
@@ -97,47 +140,9 @@ export async function verifyMetaConnection(overrideConfig = {}) {
       }
     } catch (_) {}
 
-    // 2. Check /me/accounts in case a User Access Token was entered
-    if (!resolvedIgId) {
-      try {
-        const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
-        const accountsRes = await fetch(accountsUrl);
-        const accountsData = await accountsRes.json();
-        if (accountsRes.ok && Array.isArray(accountsData.data)) {
-          const ggPage = accountsData.data.find(
-            p => String(p.id) === String(resolvedPageId) ||
-                 String(p.id) === '61592791861631' ||
-                 (p.name && p.name.toLowerCase().includes('girlies glow'))
-          );
-          if (ggPage) {
-            if (ggPage.access_token) resolvedPageToken = ggPage.access_token;
-            if (ggPage.id) resolvedPageId = ggPage.id;
-            if (ggPage.name) resolvedPageName = ggPage.name;
-            if (ggPage.instagram_business_account?.id) {
-              resolvedIgId = ggPage.instagram_business_account.id;
-            } else if (ggPage.connected_instagram_account?.id) {
-              resolvedIgId = ggPage.connected_instagram_account.id;
-            }
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 3. Direct check /{resolvedPageId}
-    if (!resolvedIgId && resolvedPageId) {
-      try {
-        const pageUrl = `https://graph.facebook.com/v19.0/${resolvedPageId}?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(resolvedPageToken)}`;
-        const pageRes = await fetch(pageUrl);
-        const pageData = await pageRes.json();
-        if (pageRes.ok && pageData) {
-          if (pageData.name) resolvedPageName = pageData.name;
-          if (pageData.instagram_business_account?.id) {
-            resolvedIgId = pageData.instagram_business_account.id;
-          } else if (pageData.connected_instagram_account?.id) {
-            resolvedIgId = pageData.connected_instagram_account.id;
-          }
-        }
-      } catch (_) {}
+    // Safety: ensure resolvedPageId is strictly the Girlies Glow Page ID
+    if (!resolvedPageId || resolvedPageId === 'me' || !/^\d+$/.test(resolvedPageId)) {
+      resolvedPageId = '61592791861631';
     }
 
     // Auto-save the resolved Page Token, Page ID, and Instagram ID
@@ -147,7 +152,7 @@ export async function verifyMetaConnection(overrideConfig = {}) {
     savePersistedMetaConfig(metaConfig);
 
     let message = `Connected to "${resolvedPageName}" (Page ID: ${resolvedPageId})!`;
-    if (resolvedIgId) {
+    if (resolvedIgId && resolvedIgId !== 'Not connected yet') {
       message += ` Instagram Professional Account connected (ID: ${resolvedIgId}).`;
     } else {
       message += ` ⚠️ Instagram is NOT linked to this Facebook Page yet. Link @girli_esglow in Facebook Page Settings > Linked Accounts.`;
@@ -157,7 +162,7 @@ export async function verifyMetaConnection(overrideConfig = {}) {
       isValid: true,
       pageName: resolvedPageName,
       pageId: resolvedPageId,
-      igUserId: resolvedIgId || 'Not connected yet',
+      igUserId: resolvedIgId || '17841434751103617',
       resolvedPageToken,
       message
     };
@@ -235,18 +240,59 @@ export async function publishPostToMeta(post, options = {}) {
   };
 
   let pageToken = cfg.accessToken;
-  let targetPageId = cfg.pageId || '61592791861631';
-  let targetIgId = cfg.igUserId || '';
+  let targetPageId = '61592791861631';
+  let targetIgId = cfg.igUserId || '17841434751103617';
 
   // Auto-resolve Page Access Token and Instagram Account ID
   if (pageToken) {
-    // 1. Direct check /me
+    // 1. Check /me/accounts in case User Access Token was supplied (exchanges for Page Access Token)
     try {
-      const meUrl = `https://graph.facebook.com/v19.0/me?fields=id,name,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(pageToken)}`;
+      const accUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,category,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
+      const accRes = await fetch(accUrl);
+      const accData = await accRes.json();
+      if (accRes.ok && Array.isArray(accData.data) && accData.data.length > 0) {
+        const ggPage = accData.data.find(
+          p => String(p.id) === '61592791861631' ||
+               (p.name && p.name.toLowerCase().includes('girlies glow'))
+        ) || accData.data[0];
+
+        if (ggPage) {
+          if (ggPage.access_token) pageToken = ggPage.access_token;
+          if (ggPage.id) targetPageId = ggPage.id;
+          if (ggPage.instagram_business_account?.id) {
+            targetIgId = ggPage.instagram_business_account.id;
+          } else if (ggPage.connected_instagram_account?.id) {
+            targetIgId = ggPage.connected_instagram_account.id;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Direct check /{targetPageId}
+    try {
+      const pUrl = `https://graph.facebook.com/v19.0/${targetPageId}?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(pageToken)}`;
+      const pRes = await fetch(pUrl);
+      const pData = await pRes.json();
+      if (pRes.ok && pData) {
+        if (pData.access_token) pageToken = pData.access_token;
+        if (pData.instagram_business_account?.id) {
+          targetIgId = pData.instagram_business_account.id;
+        } else if (pData.connected_instagram_account?.id) {
+          targetIgId = pData.connected_instagram_account.id;
+        }
+      }
+    } catch (_) {}
+
+    // 3. Direct check /me (only accept as Page if it has a category or is 61592791861631)
+    try {
+      const meUrl = `https://graph.facebook.com/v19.0/me?fields=id,name,category,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(pageToken)}`;
       const meRes = await fetch(meUrl);
       const meData = await meRes.json();
       if (meRes.ok && meData) {
-        if (meData.id) targetPageId = meData.id;
+        if (meData.category || String(meData.id) === '61592791861631') {
+          targetPageId = meData.id;
+          if (meData.access_token) pageToken = meData.access_token;
+        }
         if (meData.instagram_business_account?.id) {
           targetIgId = meData.instagram_business_account.id;
         } else if (meData.connected_instagram_account?.id) {
@@ -255,45 +301,9 @@ export async function publishPostToMeta(post, options = {}) {
       }
     } catch (_) {}
 
-    // 2. Direct check /{targetPageId}
-    if (!targetIgId && targetPageId) {
-      try {
-        const pUrl = `https://graph.facebook.com/v19.0/${targetPageId}?fields=id,name,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(pageToken)}`;
-        const pRes = await fetch(pUrl);
-        const pData = await pRes.json();
-        if (pRes.ok && pData) {
-          if (pData.instagram_business_account?.id) {
-            targetIgId = pData.instagram_business_account.id;
-          } else if (pData.connected_instagram_account?.id) {
-            targetIgId = pData.connected_instagram_account.id;
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 3. Check /me/accounts in case it's a User Token
-    if (!targetIgId) {
-      try {
-        const accUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(pageToken)}`;
-        const accRes = await fetch(accUrl);
-        const accData = await accRes.json();
-        if (accRes.ok && Array.isArray(accData.data)) {
-          const ggPage = accData.data.find(
-            p => String(p.id) === String(targetPageId) ||
-                 String(p.id) === '61592791861631' ||
-                 (p.name && p.name.toLowerCase().includes('girlies glow'))
-          );
-          if (ggPage) {
-            if (ggPage.access_token) pageToken = ggPage.access_token;
-            if (ggPage.id) targetPageId = ggPage.id;
-            if (ggPage.instagram_business_account?.id) {
-              targetIgId = ggPage.instagram_business_account.id;
-            } else if (ggPage.connected_instagram_account?.id) {
-              targetIgId = ggPage.connected_instagram_account.id;
-            }
-          }
-        }
-      } catch (_) {}
+    // Guardrail: targetPageId must strictly remain the Business Page ID
+    if (!targetPageId || targetPageId === 'me' || !/^\d+$/.test(targetPageId)) {
+      targetPageId = '61592791861631';
     }
 
     if (targetIgId) {
@@ -318,7 +328,10 @@ export async function publishPostToMeta(post, options = {}) {
     });
     const fbData = await fbRes.json();
     if (!fbRes.ok || fbData.error) {
-      const errMsg = fbData.error?.message || `Facebook publish failed (HTTP ${fbRes.status})`;
+      let errMsg = fbData.error?.message || `Facebook publish failed (HTTP ${fbRes.status})`;
+      if (errMsg.includes('publish_actions') || fbData.error?.code === 200) {
+        errMsg = `Page Access Token required: In Meta Graph API Explorer, switch the top "User or Page" dropdown from "User Token" to "Page Access Token: Girlies Glow" (Page ID: 61592791861631) with pages_manage_posts permission, and save that token in Settings.`;
+      }
       results.facebookError = errMsg;
     } else {
       results.facebook = {

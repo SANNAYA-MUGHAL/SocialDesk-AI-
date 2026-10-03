@@ -1319,7 +1319,7 @@ async function executeLivePublish() {
   const isMock = Boolean(document.getElementById('publish-mock-checkbox')?.checked);
   const token = localStorage.getItem('meta_page_access_token') || '';
   const pageId = localStorage.getItem('meta_page_id') || '61592791861631';
-  const igUserId = localStorage.getItem('meta_ig_user_id') || '';
+  const igUserId = localStorage.getItem('meta_ig_user_id') || '17841434751103617';
 
   if (!isMock && !token) {
     showToast('⚠️ Meta Page Access Token is missing! Please enter your token in Meta API Settings first.', 'error');
@@ -1423,22 +1423,22 @@ function toggleTokenVisibility() {
 
 async function loadMetaSettings() {
   const localToken = localStorage.getItem('meta_page_access_token') || '';
-  const localPageId = localStorage.getItem('meta_page_id') || '';
-  const localIgUserId = localStorage.getItem('meta_ig_user_id') || '';
+  const localPageId = localStorage.getItem('meta_page_id') || '61592791861631';
+  const localIgUserId = localStorage.getItem('meta_ig_user_id') || '17841434751103617';
 
   const tokenInput = document.getElementById('meta-access-token');
   const pageIdEl = document.getElementById('meta-page-id');
   const igIdEl = document.getElementById('meta-ig-user-id');
 
   if (tokenInput && localToken) tokenInput.value = localToken;
-  if (pageIdEl && localPageId) pageIdEl.value = localPageId;
-  if (igIdEl && localIgUserId) igIdEl.value = localIgUserId;
+  if (pageIdEl) pageIdEl.value = localPageId || '61592791861631';
+  if (igIdEl) igIdEl.value = localIgUserId || '17841434751103617';
 
   try {
     const res = await fetch('/api/settings/meta');
     if (!res.ok) return;
     const cfg = await res.json();
-    if (pageIdEl && cfg.pageId && !localPageId) pageIdEl.value = cfg.pageId;
+    if (pageIdEl && cfg.pageId) pageIdEl.value = cfg.pageId;
     if (igIdEl && cfg.igUserId && !localIgUserId) igIdEl.value = cfg.igUserId;
 
     const hasToken = Boolean(localToken || cfg.isConfigured);
@@ -1466,7 +1466,7 @@ async function loadMetaSettings() {
 async function testMetaConnection() {
   const token = document.getElementById('meta-access-token').value.trim() || localStorage.getItem('meta_page_access_token') || '';
   const pageId = document.getElementById('meta-page-id').value.trim() || '61592791861631';
-  const igUserId = document.getElementById('meta-ig-user-id').value.trim();
+  const igUserId = document.getElementById('meta-ig-user-id').value.trim() || '17841434751103617';
 
   const statusEl = document.getElementById('meta-connection-status');
   if (!statusEl) return;
@@ -1511,13 +1511,14 @@ async function testMetaConnection() {
       } else {
         localStorage.setItem('meta_page_access_token', token);
       }
-      if (data.pageId) {
-        document.getElementById('meta-page-id').value = data.pageId;
-        localStorage.setItem('meta_page_id', data.pageId);
-      }
-      if (data.igUserId && data.igUserId !== 'Not connected yet') {
-        document.getElementById('meta-ig-user-id').value = data.igUserId;
-        localStorage.setItem('meta_ig_user_id', data.igUserId);
+      const finalPageId = data.pageId || '61592791861631';
+      document.getElementById('meta-page-id').value = finalPageId;
+      localStorage.setItem('meta_page_id', finalPageId);
+
+      const finalIgId = data.igUserId || '17841434751103617';
+      if (finalIgId && finalIgId !== 'Not connected yet') {
+        document.getElementById('meta-ig-user-id').value = finalIgId;
+        localStorage.setItem('meta_ig_user_id', finalIgId);
       }
       showToast('Meta connection verified successfully!', 'success');
     }
@@ -1531,12 +1532,12 @@ async function testMetaConnection() {
 
 async function saveMetaSettings() {
   const token = document.getElementById('meta-access-token').value.trim();
-  const pageId = document.getElementById('meta-page-id').value.trim();
-  const igUserId = document.getElementById('meta-ig-user-id').value.trim();
+  const pageId = document.getElementById('meta-page-id').value.trim() || '61592791861631';
+  const igUserId = document.getElementById('meta-ig-user-id').value.trim() || '17841434751103617';
 
   if (token) localStorage.setItem('meta_page_access_token', token);
-  if (pageId) localStorage.setItem('meta_page_id', pageId);
-  if (igUserId) localStorage.setItem('meta_ig_user_id', igUserId);
+  localStorage.setItem('meta_page_id', pageId);
+  localStorage.setItem('meta_ig_user_id', igUserId);
 
   try {
     const res = await fetch('/api/settings/meta', {
