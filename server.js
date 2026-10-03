@@ -34,6 +34,33 @@ const MIME_TYPES = {
   '.csv': 'text/csv; charset=utf-8',
 };
 
+// In-memory upload cache for serverless environments (e.g. Vercel)
+export const uploadedMediaCache = new Map();
+
+function saveUploadedMedia(safeFilename, fileBuffer, mimeType) {
+  uploadedMediaCache.set(safeFilename, { buffer: fileBuffer, mimeType });
+  const publicUploads = path.join(PUBLIC_DIR, 'uploads');
+  try {
+    if (!fs.existsSync(publicUploads)) {
+      fs.mkdirSync(publicUploads, { recursive: true });
+    }
+    const targetPath = path.join(publicUploads, safeFilename);
+    fs.writeFileSync(targetPath, fileBuffer);
+    return `/uploads/${safeFilename}`;
+  } catch (err) {
+    // EROFS fallback (read-only serverless filesystem like Vercel)
+    try {
+      const tmpUploads = path.join('/tmp', 'uploads');
+      if (!fs.existsSync(tmpUploads)) {
+        fs.mkdirSync(tmpUploads, { recursive: true });
+      }
+      const tmpPath = path.join(tmpUploads, safeFilename);
+      fs.writeFileSync(tmpPath, fileBuffer);
+    } catch (_) {}
+    return `/uploads/${safeFilename}`;
+  }
+}
+
 let inMemoryPosts = null;
 
 function getPosts() {
@@ -185,6 +212,28 @@ function serveStatic(req, res, pathname) {
   }
 
   const relativePath = pathname === '/' ? '/index.html' : pathname;
+
+  // 0. Check uploads (in-memory cache or /tmp/uploads or public/uploads)
+  if (relativePath.startsWith('/uploads/')) {
+    const filename = path.basename(relativePath);
+    if (uploadedMediaCache.has(filename)) {
+      const item = uploadedMediaCache.get(filename);
+      res.writeHead(200, {
+        'Content-Type': item.mimeType || 'image/png',
+        'Content-Length': item.buffer.length,
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'public, max-age=31536000'
+      });
+      return res.end(item.buffer);
+    }
+    const tmpUploadPath = path.resolve('/tmp', 'uploads', filename);
+    if (tmpUploadPath.startsWith('/tmp/uploads') && fs.existsSync(tmpUploadPath)) {
+      const stat = fs.statSync(tmpUploadPath);
+      if (stat.isFile()) {
+        return streamFile(res, tmpUploadPath);
+      }
+    }
+  }
 
   // 1. Check in public/ directory
   const publicPath = path.resolve(PUBLIC_DIR, '.' + relativePath);
@@ -416,17 +465,14 @@ export async function handleRequest(req, res) {
       }
 
       const post = posts[index];
-      const uploadsDir = path.join(PUBLIC_DIR, 'uploads');
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-
       let ext = 'png';
+      let mime = 'image/png';
       let base64Content = body.data;
+
       if (typeof body.data === 'string' && body.data.startsWith('data:')) {
         const matches = body.data.match(/^data:([^;]+);base64,(.+)$/);
         if (matches) {
-          const mime = matches[1].toLowerCase();
+          mime = matches[1].toLowerCase();
           base64Content = matches[2];
           if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
           else if (mime.includes('png')) ext = 'png';
@@ -441,11 +487,8 @@ export async function handleRequest(req, res) {
       }
 
       const safeFilename = `post_${post.id}_custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-      const targetFilePath = path.join(uploadsDir, safeFilename);
       const fileBuffer = Buffer.from(base64Content, 'base64');
-      fs.writeFileSync(targetFilePath, fileBuffer);
-
-      const publicUrl = `/uploads/${safeFilename}`;
+      const publicUrl = saveUploadedMedia(safeFilename, fileBuffer, mime);
 
       if (!post.originalMedia) {
         post.originalMedia = Array.isArray(post.media) ? [...post.media] : post.media;

@@ -4,5 +4,11 @@
     "api/**/*.js": {
       "includeFiles": "data/posts.json"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/uploads/:match*",
+      "destination": "/api/index.js"
+    }
+  ]
 }

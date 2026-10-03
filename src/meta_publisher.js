@@ -75,61 +75,91 @@ export async function verifyMetaConnection(overrideConfig = {}) {
   }
 
   try {
-    // 1. First check /me/accounts in case a User Access Token was entered
-    const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
-    const accountsRes = await fetch(accountsUrl);
-    const accountsData = await accountsRes.json();
+    let resolvedPageToken = cfg.accessToken;
+    let resolvedPageId = cfg.pageId || '61592791861631';
+    let resolvedPageName = 'Girlies Glow';
+    let resolvedIgId = cfg.igUserId || '';
 
-    if (accountsRes.ok && Array.isArray(accountsData.data)) {
-      const ggPage = accountsData.data.find(
-        p => String(p.id) === String(cfg.pageId) || (p.name && p.name.toLowerCase().includes('girlies glow'))
-      );
-
-      if (ggPage) {
-        const pageToken = ggPage.access_token || cfg.accessToken;
-        const igId = ggPage.instagram_business_account?.id || cfg.igUserId;
-
-        // Auto-save the resolved Page Token and Instagram ID
-        metaConfig.accessToken = pageToken;
-        metaConfig.pageId = ggPage.id;
-        if (igId) metaConfig.igUserId = igId;
-
-        return {
-          isValid: true,
-          pageName: ggPage.name,
-          pageId: ggPage.id,
-          igUserId: igId || 'Not connected yet',
-          resolvedPageToken: pageToken,
-          message: `Connected to "${ggPage.name}"! Auto-detected Page Access Token and Instagram ID.`
-        };
+    // 1. Direct check with /me using token
+    try {
+      const meUrl = `https://graph.facebook.com/v19.0/me?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
+      const meRes = await fetch(meUrl);
+      const meData = await meRes.json();
+      if (meRes.ok && meData) {
+        if (meData.id) resolvedPageId = meData.id;
+        if (meData.name) resolvedPageName = meData.name;
+        if (meData.access_token) resolvedPageToken = meData.access_token;
+        if (meData.instagram_business_account?.id) {
+          resolvedIgId = meData.instagram_business_account.id;
+        } else if (meData.connected_instagram_account?.id) {
+          resolvedIgId = meData.connected_instagram_account.id;
+        }
       }
+    } catch (_) {}
+
+    // 2. Check /me/accounts in case a User Access Token was entered
+    if (!resolvedIgId) {
+      try {
+        const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
+        const accountsRes = await fetch(accountsUrl);
+        const accountsData = await accountsRes.json();
+        if (accountsRes.ok && Array.isArray(accountsData.data)) {
+          const ggPage = accountsData.data.find(
+            p => String(p.id) === String(resolvedPageId) ||
+                 String(p.id) === '61592791861631' ||
+                 (p.name && p.name.toLowerCase().includes('girlies glow'))
+          );
+          if (ggPage) {
+            if (ggPage.access_token) resolvedPageToken = ggPage.access_token;
+            if (ggPage.id) resolvedPageId = ggPage.id;
+            if (ggPage.name) resolvedPageName = ggPage.name;
+            if (ggPage.instagram_business_account?.id) {
+              resolvedIgId = ggPage.instagram_business_account.id;
+            } else if (ggPage.connected_instagram_account?.id) {
+              resolvedIgId = ggPage.connected_instagram_account.id;
+            }
+          }
+        }
+      } catch (_) {}
     }
 
-    // 2. Direct check as Facebook Page Token
-    const pageUrl = `https://graph.facebook.com/v19.0/${cfg.pageId}?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
-    const pageRes = await fetch(pageUrl);
-    const pageData = await pageRes.json();
-
-    if (!pageRes.ok || pageData.error) {
-      return {
-        isValid: false,
-        error: pageData.error?.message || `Failed to verify Facebook Page (HTTP ${pageRes.status})`
-      };
+    // 3. Direct check /{resolvedPageId}
+    if (!resolvedIgId && resolvedPageId) {
+      try {
+        const pageUrl = `https://graph.facebook.com/v19.0/${resolvedPageId}?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(resolvedPageToken)}`;
+        const pageRes = await fetch(pageUrl);
+        const pageData = await pageRes.json();
+        if (pageRes.ok && pageData) {
+          if (pageData.name) resolvedPageName = pageData.name;
+          if (pageData.instagram_business_account?.id) {
+            resolvedIgId = pageData.instagram_business_account.id;
+          } else if (pageData.connected_instagram_account?.id) {
+            resolvedIgId = pageData.connected_instagram_account.id;
+          }
+        }
+      } catch (_) {}
     }
 
-    // Auto-detect Instagram Business Account ID if not set
-    let detectedIgId = cfg.igUserId;
-    if (!detectedIgId && pageData.instagram_business_account?.id) {
-      detectedIgId = pageData.instagram_business_account.id;
-      metaConfig.igUserId = detectedIgId;
+    // Auto-save the resolved Page Token, Page ID, and Instagram ID
+    metaConfig.accessToken = resolvedPageToken;
+    metaConfig.pageId = resolvedPageId;
+    if (resolvedIgId) metaConfig.igUserId = resolvedIgId;
+    savePersistedMetaConfig(metaConfig);
+
+    let message = `Connected to "${resolvedPageName}" (Page ID: ${resolvedPageId})!`;
+    if (resolvedIgId) {
+      message += ` Instagram Professional Account connected (ID: ${resolvedIgId}).`;
+    } else {
+      message += ` ⚠️ Instagram is NOT linked to this Facebook Page yet. Link @girli_esglow in Facebook Page Settings > Linked Accounts.`;
     }
 
     return {
       isValid: true,
-      pageName: pageData.name || 'Girlies Glow',
-      pageId: pageData.id,
-      igUserId: detectedIgId || 'Not connected yet',
-      message: 'Connection verified with Girlies Glow Facebook Page & Instagram!'
+      pageName: resolvedPageName,
+      pageId: resolvedPageId,
+      igUserId: resolvedIgId || 'Not connected yet',
+      resolvedPageToken,
+      message
     };
   } catch (err) {
     return {
@@ -176,10 +206,10 @@ export async function publishPostToMeta(post, options = {}) {
       postId: post.id,
       publishedAt: new Date().toISOString(),
       facebook: {
-        pageId: cfg.pageId,
+        pageId: cfg.pageId || '61592791861631',
         pageName: 'Girlies Glow Facebook Business Page',
         postId: mockFbId,
-        url: `https://www.facebook.com/p/Girlies-Glow-${cfg.pageId}/`
+        url: `https://www.facebook.com/p/Girlies-Glow-${cfg.pageId || '61592791861631'}/`
       },
       instagram: {
         igAccount: '@girli_esglow',
@@ -205,30 +235,73 @@ export async function publishPostToMeta(post, options = {}) {
   };
 
   let pageToken = cfg.accessToken;
-  let targetPageId = cfg.pageId || '1287362551122727';
-  let targetIgId = cfg.igUserId;
+  let targetPageId = cfg.pageId || '61592791861631';
+  let targetIgId = cfg.igUserId || '';
 
-  // Auto-resolve Page Access Token and Page ID if User Token was supplied
-  try {
-    const accUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(cfg.accessToken)}`;
-    const accRes = await fetch(accUrl);
-    const accData = await accRes.json();
-    if (accRes.ok && Array.isArray(accData.data)) {
-      const ggPage = accData.data.find(
-        p => String(p.id) === String(cfg.pageId) ||
-             String(p.id) === '1287362551122727' ||
-             String(p.id) === '61592791861631' ||
-             (p.name && p.name.toLowerCase().includes('girlies glow'))
-      );
-      if (ggPage) {
-        if (ggPage.access_token) pageToken = ggPage.access_token;
-        if (ggPage.id) targetPageId = ggPage.id;
-        if (ggPage.instagram_business_account?.id && !targetIgId) {
-          targetIgId = ggPage.instagram_business_account.id;
+  // Auto-resolve Page Access Token and Instagram Account ID
+  if (pageToken) {
+    // 1. Direct check /me
+    try {
+      const meUrl = `https://graph.facebook.com/v19.0/me?fields=id,name,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(pageToken)}`;
+      const meRes = await fetch(meUrl);
+      const meData = await meRes.json();
+      if (meRes.ok && meData) {
+        if (meData.id) targetPageId = meData.id;
+        if (meData.instagram_business_account?.id) {
+          targetIgId = meData.instagram_business_account.id;
+        } else if (meData.connected_instagram_account?.id) {
+          targetIgId = meData.connected_instagram_account.id;
         }
       }
+    } catch (_) {}
+
+    // 2. Direct check /{targetPageId}
+    if (!targetIgId && targetPageId) {
+      try {
+        const pUrl = `https://graph.facebook.com/v19.0/${targetPageId}?fields=id,name,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(pageToken)}`;
+        const pRes = await fetch(pUrl);
+        const pData = await pRes.json();
+        if (pRes.ok && pData) {
+          if (pData.instagram_business_account?.id) {
+            targetIgId = pData.instagram_business_account.id;
+          } else if (pData.connected_instagram_account?.id) {
+            targetIgId = pData.connected_instagram_account.id;
+          }
+        }
+      } catch (_) {}
     }
-  } catch (_) {}
+
+    // 3. Check /me/accounts in case it's a User Token
+    if (!targetIgId) {
+      try {
+        const accUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account,connected_instagram_account&access_token=${encodeURIComponent(pageToken)}`;
+        const accRes = await fetch(accUrl);
+        const accData = await accRes.json();
+        if (accRes.ok && Array.isArray(accData.data)) {
+          const ggPage = accData.data.find(
+            p => String(p.id) === String(targetPageId) ||
+                 String(p.id) === '61592791861631' ||
+                 (p.name && p.name.toLowerCase().includes('girlies glow'))
+          );
+          if (ggPage) {
+            if (ggPage.access_token) pageToken = ggPage.access_token;
+            if (ggPage.id) targetPageId = ggPage.id;
+            if (ggPage.instagram_business_account?.id) {
+              targetIgId = ggPage.instagram_business_account.id;
+            } else if (ggPage.connected_instagram_account?.id) {
+              targetIgId = ggPage.connected_instagram_account.id;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (targetIgId) {
+      metaConfig.igUserId = targetIgId;
+      metaConfig.pageId = targetPageId;
+      savePersistedMetaConfig(metaConfig);
+    }
+  }
 
   // 3. Publish to Facebook Business Page
   try {
@@ -259,7 +332,9 @@ export async function publishPostToMeta(post, options = {}) {
   }
 
   // 4. Publish to Instagram Professional (@girli_esglow)
-  if (targetIgId) {
+  if (!targetIgId) {
+    results.instagramError = `No linked Instagram Professional Account found for Facebook Page (${targetPageId}). In Facebook Page Settings > Linked Accounts, connect your Instagram account (@girli_esglow) and ensure it is set as a Professional (Creator or Business) account.`;
+  } else {
     try {
       // Step A: Create Media Container
       const igMediaEndpoint = `https://graph.facebook.com/v19.0/${targetIgId}/media`;
@@ -276,13 +351,21 @@ export async function publishPostToMeta(post, options = {}) {
       });
       const containerData = await containerRes.json();
       if (!containerRes.ok || containerData.error) {
-        throw new Error(containerData.error?.message || `Instagram container creation failed`);
+        let errDesc = containerData.error?.message || `Instagram container creation failed (HTTP ${containerRes.status})`;
+        if (errDesc.includes('permission') || containerData.error?.code === 10 || containerData.error?.code === 200) {
+          errDesc += ` (Meta App permission 'instagram_content_publish' and 'instagram_basic' are required)`;
+        }
+        throw new Error(errDesc);
       }
 
       // Step B: Publish Container
+      const creationId = containerData.id;
+      // Brief pause to allow Meta media processing
+      await new Promise(r => setTimeout(r, 1500));
+
       const publishEndpoint = `https://graph.facebook.com/v19.0/${targetIgId}/media_publish`;
       const publishPayload = new URLSearchParams({
-        creation_id: containerData.id,
+        creation_id: creationId,
         access_token: pageToken
       });
 
@@ -317,8 +400,6 @@ export async function publishPostToMeta(post, options = {}) {
     }
     if (results.instagramError) {
       reasons.push(`Instagram: ${results.instagramError}`);
-    } else if (!targetIgId) {
-      reasons.push(`Instagram: No Instagram Business ID found. Ensure @girli_esglow is linked in Page Settings.`);
     }
     throw new Error(reasons.join(' | '));
   }

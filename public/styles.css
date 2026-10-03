@@ -931,6 +931,12 @@ textarea.form-control {
   color: #166534;
 }
 
+.toast.toast-warning {
+  border-left-color: #F59E0B;
+  background: #FFFBEB;
+  color: #92400E;
+}
+
 @keyframes slideIn {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }

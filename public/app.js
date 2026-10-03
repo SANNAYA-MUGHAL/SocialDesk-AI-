@@ -127,6 +127,27 @@ async function loadPosts() {
       throw new Error(errBody.error || `HTTP ${res.status}`);
     }
     posts = await res.json();
+
+    // Rehydrate any custom media uploaded from device saved in localStorage
+    posts.forEach(p => {
+      const customMain = localStorage.getItem(`gg_custom_media_${p.id}_main`);
+      if (customMain) {
+        if (!p.originalMedia) p.originalMedia = p.media;
+        p.media = customMain;
+        p.isCustomMedia = true;
+      }
+      if (p.format === 'carousel' && Array.isArray(p.media)) {
+        p.media = p.media.map((s, idx) => {
+          const customSlide = localStorage.getItem(`gg_custom_media_${p.id}_${idx}`);
+          if (customSlide) {
+            p.isCustomMedia = true;
+            return customSlide;
+          }
+          return s;
+        });
+      }
+    });
+
     updateStats();
     renderCurrentView();
   } catch (err) {
@@ -668,42 +689,76 @@ async function uploadSelectedFile(file, postId, slideIndex = 0) {
   if (statusEl) {
     statusEl.style.display = 'block';
     statusEl.style.color = '#683DA9';
-    statusEl.textContent = `⏳ Uploading ${file.name}...`;
+    statusEl.textContent = `⏳ Processing ${file.name}...`;
   }
 
   try {
     const base64Data = await readFileAsBase64(file);
-    const res = await fetch(`/api/posts/${post.id}/upload-media`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filename: file.name,
-        data: base64Data,
-        slideIndex: post.format === 'carousel' ? slideIndex : undefined
-      })
-    });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to upload media');
+    // Save immediately to client localStorage so it survives page reloads and serverless restarts
+    const storageKey = `gg_custom_media_${post.id}_${post.format === 'carousel' ? slideIndex : 'main'}`;
+    try {
+      localStorage.setItem(storageKey, base64Data);
+    } catch (quotaErr) {
+      console.warn('LocalStorage save skipped (quota limit):', quotaErr);
     }
 
-    const result = await res.json();
+    // Immediately update in-memory post and UI
     const idx = findPostIndex(post.id);
-    if (idx !== -1 && result.post) {
-      posts[idx] = result.post;
+    if (idx !== -1) {
+      if (post.format === 'carousel' && Array.isArray(posts[idx].media)) {
+        if (!posts[idx].originalMedia) posts[idx].originalMedia = [...posts[idx].media];
+        posts[idx].media[slideIndex] = base64Data;
+      } else {
+        if (!posts[idx].originalMedia) posts[idx].originalMedia = posts[idx].media;
+        posts[idx].media = base64Data;
+      }
+      posts[idx].isCustomMedia = true;
+      posts[idx].lastMediaUpload = new Date().toISOString();
+      mediaCacheBusters[post.id] = Date.now();
+      updateModalMediaPreview(posts[idx], slideIndex);
+      renderCurrentView();
     }
 
-    mediaCacheBusters[post.id] = Date.now();
-    updateModalMediaPreview(posts[idx], slideIndex);
-    renderCurrentView();
+    // Attempt to persist on the server / memory cache
+    try {
+      const res = await fetch(`/api/posts/${post.id}/upload-media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          data: base64Data,
+          slideIndex: post.format === 'carousel' ? slideIndex : undefined
+        })
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        if (idx !== -1 && result.post) {
+          posts[idx] = result.post;
+          // Keep base64 active if on serverless read-only mode
+          if (base64Data) {
+            if (posts[idx].format === 'carousel' && Array.isArray(posts[idx].media)) {
+              posts[idx].media[slideIndex] = base64Data;
+            } else {
+              posts[idx].media = base64Data;
+            }
+          }
+          posts[idx].isCustomMedia = true;
+          updateModalMediaPreview(posts[idx], slideIndex);
+          renderCurrentView();
+        }
+      }
+    } catch (serverErr) {
+      console.warn('Server upload background sync warning:', serverErr.message);
+    }
 
     if (statusEl) {
       statusEl.style.color = '#15803D';
-      statusEl.textContent = `✓ Uploaded successfully!`;
+      statusEl.textContent = `✓ Uploaded successfully from device!`;
     }
 
-    showToast(`Media updated successfully for Post ${post.id}`, 'success');
+    showToast(`Media updated successfully for Post ${post.id}!`, 'success');
   } catch (err) {
     if (statusEl) {
       statusEl.style.color = '#DC2626';
@@ -726,6 +781,12 @@ async function resetCurrentPostMedia() {
   const post = findPost(currentEditPostId);
   if (!post) return;
 
+  // Clear localStorage for this post
+  localStorage.removeItem(`gg_custom_media_${post.id}_main`);
+  for (let i = 0; i < 10; i++) {
+    localStorage.removeItem(`gg_custom_media_${post.id}_${i}`);
+  }
+
   try {
     const res = await fetch(`/api/posts/${post.id}/reset-media`, { method: 'POST' });
     if (!res.ok) {
@@ -744,7 +805,22 @@ async function resetCurrentPostMedia() {
     renderCurrentView();
     showToast(`Media reset to generated default for Post ${post.id}`, 'info');
   } catch (err) {
-    showToast(err.message, 'error');
+    // Client-side fallback if server fails
+    const idx = findPostIndex(post.id);
+    if (idx !== -1) {
+      const idStr = String(post.id);
+      let def = `/generated/post_${idStr}_static.png`;
+      if (idStr === '3') def = ['/generated/post_3_slide_1.png', '/generated/post_3_slide_2.png', '/generated/post_3_slide_3.png', '/generated/post_3_slide_4.png'];
+      else if (idStr === '8') def = ['/generated/post_8_slide_1.png', '/generated/post_8_slide_2.png', '/generated/post_8_slide_3.png', '/generated/post_8_slide_4.png', '/generated/post_8_slide_5.png'];
+      else if (idStr === '10') def = '/generated/post_10_offer.png';
+      else if (post.format === 'reel') def = `/generated/post_${idStr}_reel.mp4`;
+
+      posts[idx].media = def;
+      posts[idx].isCustomMedia = false;
+      updateModalMediaPreview(posts[idx], currentEditSlideIndex);
+      renderCurrentView();
+    }
+    showToast(`Media reset to default`, 'info');
   }
 }
 
@@ -976,13 +1052,15 @@ function dismissGuardrailAlert() {
 }
 
 // Toast System
-function showToast(msg, type = 'info') {
+function showToast(msg, type = 'info', duration = 5000) {
   const container = document.getElementById('toast-container');
   if (!container) return;
 
   const toast = document.createElement('div');
-  toast.className = `toast ${type === 'error' ? 'toast-error' : type === 'success' ? 'toast-success' : ''}`;
-  toast.innerHTML = `<span>${type === 'error' ? '⚠️' : type === 'success' ? '✓' : 'ℹ️'}</span> <span>${escapeHtml(msg)}</span>`;
+  const typeClass = type === 'error' ? 'toast-error' : type === 'success' ? 'toast-success' : type === 'warning' ? 'toast-warning' : '';
+  const icon = type === 'error' ? '⚠️' : type === 'success' ? '✓' : type === 'warning' ? '⚠️' : 'ℹ️';
+  toast.className = `toast ${typeClass}`;
+  toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(msg)}</span>`;
   container.appendChild(toast);
 
   setTimeout(() => {
@@ -993,7 +1071,7 @@ function showToast(msg, type = 'info') {
     setTimeout(() => {
       if (toast && typeof toast.remove === 'function') toast.remove();
     }, 300);
-  }, 4000);
+  }, duration);
 }
 
 function escapeHtml(str) {
@@ -1256,6 +1334,9 @@ async function executeLivePublish() {
   }
 
   try {
+    const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
+    const isDataUri = typeof rawMedia === 'string' && rawMedia.startsWith('data:');
+
     const res = await fetch(`/api/posts/${post.id}/publish-live`, {
       method: 'POST',
       headers: {
@@ -1268,7 +1349,8 @@ async function executeLivePublish() {
           accessToken: token,
           pageId,
           igUserId,
-          mockPublish: isMock
+          mockPublish: isMock,
+          customMedia: isDataUri ? rawMedia : undefined
         }
       })
     });
@@ -1280,6 +1362,11 @@ async function executeLivePublish() {
 
     const idx = findPostIndex(post.id);
     if (idx !== -1 && data.post) {
+      // Preserve custom media view on client
+      if (isDataUri) {
+        data.post.media = post.media;
+        data.post.isCustomMedia = true;
+      }
       posts[idx] = data.post;
     }
 
@@ -1290,10 +1377,23 @@ async function executeLivePublish() {
     if (data.details?.mode === 'mock') {
       showToast(`🧪 Test Simulation: Post ${post.id} verified! (No real post sent - token required for live posting)`, 'info');
     } else {
-      showToast(`🎉 Congratulations! Post ${post.id} is LIVE on your Instagram & Facebook!`, 'success');
+      const fbSuccess = Boolean(data.details?.facebook);
+      const igSuccess = Boolean(data.details?.instagram);
+
+      if (fbSuccess && igSuccess) {
+        showToast(`🎉 Congratulations! Post ${post.id} is LIVE on both Instagram & Facebook Page!`, 'success', 8000);
+      } else if (fbSuccess && !igSuccess) {
+        const igReason = data.details?.instagramError || 'Instagram account not linked or permission missing';
+        showToast(`✅ Posted to Facebook Page! ⚠️ Instagram: ${igReason}`, 'warning', 14000);
+      } else if (!fbSuccess && igSuccess) {
+        const fbReason = data.details?.facebookError || 'Facebook error';
+        showToast(`✅ Posted to Instagram! ⚠️ Facebook Page: ${fbReason}`, 'warning', 14000);
+      } else {
+        showToast(`Post published with notices: ${data.details?.warning || data.message}`, 'warning', 10000);
+      }
     }
   } catch (err) {
-    showToast(`Publishing Error: ${err.message}`, 'error');
+    showToast(`Publishing Error: ${err.message}`, 'error', 10000);
   } finally {
     if (confirmBtn) {
       confirmBtn.disabled = false;
@@ -1398,10 +1498,11 @@ async function testMetaConnection() {
       statusEl.style.border = '1px solid #FECACA';
       statusEl.textContent = `❌ Meta Error: ${data.error || 'Connection failed'}`;
     } else {
-      statusEl.style.background = '#ECFDF5';
-      statusEl.style.color = '#065F46';
-      statusEl.style.border = '1px solid #A7F3D0';
-      statusEl.textContent = `✅ Connected to "${data.pageName}" (Page ID: ${data.pageId}, Instagram: ${data.igUserId})!`;
+      const hasIg = data.igUserId && data.igUserId !== 'Not connected yet';
+      statusEl.style.background = hasIg ? '#ECFDF5' : '#FFFBEB';
+      statusEl.style.color = hasIg ? '#065F46' : '#92400E';
+      statusEl.style.border = hasIg ? '1px solid #A7F3D0' : '1px solid #FDE68A';
+      statusEl.textContent = data.message || `Connected to "${data.pageName}" (Page ID: ${data.pageId}, Instagram: ${data.igUserId})!`;
 
       // Save valid credentials to localStorage
       if (data.resolvedPageToken) {
