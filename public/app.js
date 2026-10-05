@@ -128,6 +128,18 @@ async function loadPosts() {
     }
     posts = await res.json();
 
+    // Check if new batch has been deployed, clearing old custom overrides if version changed
+    const BATCH_VERSION = 'v2_october_batch';
+    if (localStorage.getItem('gg_batch_version') !== BATCH_VERSION) {
+      for (let i = 1; i <= 10; i++) {
+        localStorage.removeItem(`gg_custom_media_${i}_main`);
+        for (let s = 0; s < 10; s++) {
+          localStorage.removeItem(`gg_custom_media_${i}_${s}`);
+        }
+      }
+      localStorage.setItem('gg_batch_version', BATCH_VERSION);
+    }
+
     // Rehydrate any custom media uploaded from device saved in localStorage
     posts.forEach(p => {
       const customMain = localStorage.getItem(`gg_custom_media_${p.id}_main`);
