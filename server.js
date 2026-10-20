@@ -289,35 +289,43 @@ export async function handleRequest(req, res) {
     rawPath = req.headers['x-forwarded-url'];
   } else if (req.headers && req.headers['x-original-url']) {
     rawPath = req.headers['x-original-url'];
-  } else if (req.headers && req.headers['x-matched-path']) {
-    rawPath = req.headers['x-matched-path'];
   }
 
   const parsedUrl = new URL(rawPath, 'http://localhost');
   let pathname = decodeURIComponent(parsedUrl.pathname);
 
+  // Check query params for Vercel rewrites (apiPath, uploadPath, match, path)
+  const apiSub = (req.query && req.query.apiPath) || parsedUrl.searchParams.get('apiPath');
+  const uploadSub = (req.query && req.query.uploadPath) || parsedUrl.searchParams.get('uploadPath');
+  const genericMatch = (req.query && (req.query.match || req.query.path)) || parsedUrl.searchParams.get('match') || parsedUrl.searchParams.get('path');
+
+  if (apiSub) {
+    const s = Array.isArray(apiSub) ? apiSub.join('/') : apiSub;
+    pathname = `/api/${s}`;
+  } else if (uploadSub) {
+    const s = Array.isArray(uploadSub) ? uploadSub.join('/') : uploadSub;
+    pathname = `/uploads/${s}`;
+  } else if (genericMatch && (pathname === '/api/index.js' || pathname === '/api/index' || pathname === '/api' || pathname === '/api/' || pathname === '/')) {
+    const s = Array.isArray(genericMatch) ? genericMatch.join('/') : genericMatch;
+    pathname = `/api/${s}`;
+  } else if (pathname === '/api/index.js' || pathname === '/api/index') {
+    pathname = '/api';
+  }
+
   // If path doesn't start with /api, but this function handles an API request, prepend /api
-  if (!pathname.startsWith('/api') && (pathname.startsWith('/posts') || pathname.startsWith('/export') || pathname.startsWith('/settings'))) {
+  if (!pathname.startsWith('/api') && !pathname.startsWith('/uploads') && (pathname.startsWith('/posts') || pathname.startsWith('/export') || pathname.startsWith('/settings') || pathname.startsWith('/meta'))) {
     pathname = '/api' + pathname;
   }
 
-  // Handle catch-all query parameter if forwarded by Vercel
-  if (req.query && req.query.path) {
-    const qPath = Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path;
-    if (pathname === '/api' || pathname === '/api/' || pathname === '/api/index') {
-      pathname = `/api/${qPath}`;
-    }
-  }
-
   // Strip trailing slash
-  if (pathname.length > 5 && pathname.endsWith('/')) {
+  if (pathname.length > 1 && pathname.endsWith('/')) {
     pathname = pathname.slice(0, -1);
   }
 
   const method = req.method.toUpperCase();
 
   // API healthcheck endpoint
-  if (pathname === '/api' || pathname === '/api/') {
+  if (pathname === '/api') {
     return sendJson(res, 200, {
       status: 'ok',
       service: 'Girlies Glow Content Scheduler API',

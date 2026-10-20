@@ -7,12 +7,16 @@
   },
   "rewrites": [
     {
-      "source": "/api/:match*",
+      "source": "/api",
       "destination": "/api/index.js"
     },
     {
+      "source": "/api/:match*",
+      "destination": "/api/index.js?apiPath=:match*"
+    },
+    {
       "source": "/uploads/:match*",
-      "destination": "/api/index.js"
+      "destination": "/api/index.js?uploadPath=:match*"
     }
   ]
 }
