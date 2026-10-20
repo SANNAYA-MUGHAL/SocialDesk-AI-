@@ -110,6 +110,15 @@ test('app.js openEditModal and action handlers handle numeric and string IDs pro
   await context.schedulePost(1);
   assert.equal(lastFetchUrl, '/api/posts/1/schedule', 'schedulePost(1) must call /api/posts/1/schedule');
   assert.equal(context.findPost(1).status, 'Scheduled', 'post status must update to Scheduled in memory');
+
+  // Verify getMediaUrlWithCacheBuster never corrupts data: or blob: URIs
+  assert.equal(typeof context.getMediaUrlWithCacheBuster, 'function', 'getMediaUrlWithCacheBuster must be a function');
+  context.mediaCacheBusters['1'] = 1729000000;
+  const dataUri = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD';
+  assert.equal(context.getMediaUrlWithCacheBuster(dataUri, '1'), dataUri, 'must NOT append ?t= to data: URI');
+  const blobUri = 'blob:https://example.com/xyz-123';
+  assert.equal(context.getMediaUrlWithCacheBuster(blobUri, '1'), blobUri, 'must NOT append ?t= to blob: URI');
+  assert.equal(context.getMediaUrlWithCacheBuster('/generated/post_1_static.png', '1'), '/generated/post_1_static.png?t=1729000000', 'must append ?t= to relative path');
 });
 
 

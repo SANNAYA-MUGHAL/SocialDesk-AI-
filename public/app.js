@@ -75,6 +75,192 @@ if (typeof window !== 'undefined') {
   window.toggleTokenVisibility = toggleTokenVisibility;
   window.testMetaConnection = testMetaConnection;
   window.saveMetaSettings = saveMetaSettings;
+  window.getMediaUrlWithCacheBuster = getMediaUrlWithCacheBuster;
+  window.handleCardDragOver = handleCardDragOver;
+  window.handleCardDragLeave = handleCardDragLeave;
+  window.handleCardDrop = handleCardDrop;
+}
+
+// Safe Cache Buster helper: NEVER append query string to data: or blob: URIs
+function getMediaUrlWithCacheBuster(url, postId) {
+  if (!url || typeof url !== 'string') return '';
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  const buster = mediaCacheBusters[postId] ? `?t=${mediaCacheBusters[postId]}` : '';
+  return url + buster;
+}
+
+// IndexedDB storage for unlimited, permanent client-side media persistence
+const GG_DB_NAME = 'GirliesGlowMediaDB';
+const GG_DB_VERSION = 1;
+const GG_STORE_NAME = 'custom_media';
+
+function openMediaDB() {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === 'undefined') return resolve(null);
+    try {
+      const request = indexedDB.open(GG_DB_NAME, GG_DB_VERSION);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(GG_STORE_NAME)) {
+          db.createObjectStore(GG_STORE_NAME, { keyPath: 'key' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    } catch (_) {
+      resolve(null);
+    }
+  });
+}
+
+async function setPersistedMedia(key, value) {
+  // 1. IndexedDB (handles large images & videos without quota limits)
+  const db = await openMediaDB();
+  if (db) {
+    try {
+      await new Promise((resolve) => {
+        const tx = db.transaction(GG_STORE_NAME, 'readwrite');
+        tx.objectStore(GG_STORE_NAME).put({ key, value, updatedAt: Date.now() });
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    } catch (e) {
+      console.warn('IndexedDB set warning:', e);
+    }
+  }
+  // 2. Also try localStorage if available and within quota
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(key, value);
+    } catch (_) {}
+  }
+}
+
+async function getPersistedMedia(key) {
+  // 1. Try IndexedDB
+  const db = await openMediaDB();
+  if (db) {
+    try {
+      const val = await new Promise((resolve) => {
+        const tx = db.transaction(GG_STORE_NAME, 'readonly');
+        const req = tx.objectStore(GG_STORE_NAME).get(key);
+        req.onsuccess = () => resolve(req.result ? req.result.value : null);
+        req.onerror = () => resolve(null);
+      });
+      if (val) return val;
+    } catch (_) {}
+  }
+  // 2. Fallback to localStorage
+  if (typeof localStorage !== 'undefined') {
+    try {
+      return localStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function removePersistedMedia(key) {
+  const db = await openMediaDB();
+  if (db) {
+    try {
+      await new Promise((resolve) => {
+        const tx = db.transaction(GG_STORE_NAME, 'readwrite');
+        tx.objectStore(GG_STORE_NAME).delete(key);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    } catch (_) {}
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem(key);
+    } catch (_) {}
+  }
+}
+
+// Client-side image optimization: scales high-res phone photos to clean, crisp ~300KB
+function optimizeImageFile(file) {
+  return new Promise((resolve, reject) => {
+    // If not an image or is SVG/GIF/video, read directly as data URL
+    if (!file.type || !file.type.startsWith('image/') || file.type.includes('svg') || file.type.includes('gif')) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      if (typeof Image === 'undefined') {
+        return resolve(e.target.result);
+      }
+      const img = new Image();
+      img.onerror = () => resolve(e.target.result);
+      img.onload = () => {
+        try {
+          const MAX_DIM = 1440;
+          let w = img.width;
+          let h = img.height;
+          if (w > MAX_DIM || h > MAX_DIM) {
+            if (w > h) {
+              h = Math.round((h * MAX_DIM) / w);
+              w = MAX_DIM;
+            } else {
+              w = Math.round((w * MAX_DIM) / h);
+              h = MAX_DIM;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const isPng = file.type === 'image/png';
+          // Use high quality JPEG (0.90) for non-transparent photos, PNG for transparent
+          const outMime = isPng ? 'image/png' : 'image/jpeg';
+          const optimizedData = canvas.toDataURL(outMime, 0.90);
+          resolve(optimizedData);
+        } catch (_) {
+          resolve(e.target.result);
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Drag & drop handlers for post cards in grid view
+function handleCardDragOver(e, postId) {
+  e.preventDefault();
+  e.stopPropagation();
+  const el = e.currentTarget;
+  if (el) el.classList.add('drag-active');
+}
+
+function handleCardDragLeave(e, postId) {
+  e.preventDefault();
+  e.stopPropagation();
+  const el = e.currentTarget;
+  if (el) el.classList.remove('drag-active');
+}
+
+function handleCardDrop(e, postId) {
+  e.preventDefault();
+  e.stopPropagation();
+  const el = e.currentTarget;
+  if (el) el.classList.remove('drag-active');
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+    const post = findPost(postId);
+    const slideIdx = post && post.format === 'carousel' ? (carouselIndexState[post.id] || 0) : 0;
+    uploadSelectedFile(e.dataTransfer.files[0], postId, slideIdx);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -130,35 +316,34 @@ async function loadPosts() {
 
     // Check if new batch has been deployed, clearing old custom overrides if version changed
     const BATCH_VERSION = 'v2_october_batch';
-    if (localStorage.getItem('gg_batch_version') !== BATCH_VERSION) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('gg_batch_version') !== BATCH_VERSION) {
       for (let i = 1; i <= 10; i++) {
-        localStorage.removeItem(`gg_custom_media_${i}_main`);
+        await removePersistedMedia(`gg_custom_media_${i}_main`);
         for (let s = 0; s < 10; s++) {
-          localStorage.removeItem(`gg_custom_media_${i}_${s}`);
+          await removePersistedMedia(`gg_custom_media_${i}_${s}`);
         }
       }
       localStorage.setItem('gg_batch_version', BATCH_VERSION);
     }
 
-    // Rehydrate any custom media uploaded from device saved in localStorage
-    posts.forEach(p => {
-      const customMain = localStorage.getItem(`gg_custom_media_${p.id}_main`);
+    // Rehydrate any custom media uploaded from device saved in IndexedDB / localStorage
+    for (const p of posts) {
+      const customMain = await getPersistedMedia(`gg_custom_media_${p.id}_main`);
       if (customMain) {
         if (!p.originalMedia) p.originalMedia = p.media;
         p.media = customMain;
         p.isCustomMedia = true;
       }
       if (p.format === 'carousel' && Array.isArray(p.media)) {
-        p.media = p.media.map((s, idx) => {
-          const customSlide = localStorage.getItem(`gg_custom_media_${p.id}_${idx}`);
+        for (let idx = 0; idx < p.media.length; idx++) {
+          const customSlide = await getPersistedMedia(`gg_custom_media_${p.id}_${idx}`);
           if (customSlide) {
             p.isCustomMedia = true;
-            return customSlide;
+            p.media[idx] = customSlide;
           }
-          return s;
-        });
+        }
       }
-    });
+    }
 
     updateStats();
     renderCurrentView();
@@ -281,7 +466,7 @@ function renderGrid() {
         <span class="post-type-badge ${formatClass}">${formatLabel}</span>
       </div>
 
-      <div class="media-preview-container ${post.format === 'reel' ? 'media-aspect-9-16' : 'media-aspect-4-5'}">
+      <div class="media-preview-container ${post.format === 'reel' ? 'media-aspect-9-16' : 'media-aspect-4-5'}" ondragover="handleCardDragOver(event, '${post.id}')" ondragleave="handleCardDragLeave(event, '${post.id}')" ondrop="handleCardDrop(event, '${post.id}')">
         ${mediaHtml}
         <div class="card-media-change-overlay">
           <button type="button" class="btn-change-media-quick" onclick="quickUploadForPost('${post.id}')" title="Upload custom photo or video from device">
@@ -379,12 +564,10 @@ function renderGrid() {
 }
 
 function renderMediaPreview(post, currentSlideIndex) {
-  const cacheBuster = mediaCacheBusters[post.id] ? `?t=${mediaCacheBusters[post.id]}` : '';
-
   if (post.format === 'carousel' && Array.isArray(post.media)) {
     const totalSlides = post.media.length;
     const safeIndex = Math.min(Math.max(0, currentSlideIndex), totalSlides - 1);
-    const mediaPath = post.media[safeIndex] + cacheBuster;
+    const mediaPath = getMediaUrlWithCacheBuster(post.media[safeIndex], post.id);
 
     return `
       <img src="${escapeHtml(mediaPath)}" alt="${escapeHtml(post.title)} Slide ${safeIndex + 1}" class="media-img" loading="lazy">
@@ -393,26 +576,44 @@ function renderMediaPreview(post, currentSlideIndex) {
         <button type="button" class="carousel-arrow" onclick="changeSlide('${post.id}', 1)">&rarr;</button>
       </div>
       <div class="carousel-badge">Slide ${safeIndex + 1} of ${totalSlides}</div>
+      ${post.isCustomMedia ? '<div class="custom-media-badge-pill">Custom Media</div>' : ''}
     `;
   }
 
   if (post.format === 'reel') {
-    const reelCover = `/generated/post_${post.id}_reel.png` + cacheBuster;
+    const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_reel.png`);
+    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4') || String(rawMedia).startsWith('data:video');
+    const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
+
+    if (isVideo) {
+      return `
+        <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #180B28;">
+          <video src="${escapeHtml(safeMediaUrl)}" class="media-video" autoplay muted loop playsinline style="object-fit: cover; width: 100%; height: 100%;"></video>
+          <div style="position: absolute; top: 12px; left: 12px; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px); color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(255, 255, 255, 0.2); z-index: 4;">
+            ▶ REEL (9:16)
+          </div>
+          ${post.isCustomMedia ? '<div class="custom-media-badge-pill">Custom Media</div>' : ''}
+        </div>
+      `;
+    }
+
     return `
       <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #180B28;">
-        <img src="${escapeHtml(reelCover)}" alt="${escapeHtml(post.title)} Reel Cover" class="media-img" style="object-fit: contain; width: 100%; height: 100%;">
-        <div style="position: absolute; top: 12px; left: 12px; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px); color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(255, 255, 255, 0.2);">
-          ▶ REEL (9:16)
+        <img src="${escapeHtml(safeMediaUrl)}" alt="${escapeHtml(post.title)} Reel Cover" class="media-img" style="object-fit: cover; width: 100%; height: 100%;">
+        <div style="position: absolute; top: 12px; left: 12px; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px); color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(255, 255, 255, 0.2); z-index: 4;">
+            ▶ REEL (9:16)
         </div>
+        ${post.isCustomMedia ? '<div class="custom-media-badge-pill">Custom Media</div>' : ''}
       </div>
     `;
   }
 
   // Static post
   const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
-  const mediaFile = rawMedia + cacheBuster;
+  const mediaFile = getMediaUrlWithCacheBuster(rawMedia, post.id);
   return `
     <img src="${escapeHtml(mediaFile)}" alt="${escapeHtml(post.title)}" class="media-img" loading="lazy">
+    ${post.isCustomMedia ? '<div class="custom-media-badge-pill">Custom Media</div>' : ''}
   `;
 }
 
@@ -591,8 +792,6 @@ function updateModalMediaPreview(post, slideIdx = 0) {
   if (customBadge) customBadge.style.display = post.isCustomMedia ? 'inline-block' : 'none';
   if (resetBtn) resetBtn.style.display = post.isCustomMedia ? 'inline-block' : 'none';
 
-  const cacheBuster = mediaCacheBusters[post.id] ? `?t=${mediaCacheBusters[post.id]}` : '';
-
   // Setup carousel slide pills if format === 'carousel'
   if (post.format === 'carousel' && Array.isArray(post.media)) {
     if (carouselGroup) carouselGroup.style.display = 'block';
@@ -605,7 +804,7 @@ function updateModalMediaPreview(post, slideIdx = 0) {
     }
 
     const safeIdx = Math.min(Math.max(0, slideIdx), post.media.length - 1);
-    const mediaSrc = post.media[safeIdx] + cacheBuster;
+    const mediaSrc = getMediaUrlWithCacheBuster(post.media[safeIdx], post.id);
     if (previewWrap) {
       previewWrap.innerHTML = `<img src="${escapeHtml(mediaSrc)}" alt="Slide ${safeIdx + 1}" style="width: 100%; height: 100%; object-fit: cover;">`;
     }
@@ -617,15 +816,16 @@ function updateModalMediaPreview(post, slideIdx = 0) {
   // Reel preview
   if (post.format === 'reel') {
     const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_reel.png`);
-    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4');
+    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4') || String(rawMedia).startsWith('data:video');
+    const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
     if (previewWrap) {
       if (isVideo) {
         previewWrap.innerHTML = `
-          <video src="${escapeHtml(rawMedia + cacheBuster)}" controls muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+          <video src="${escapeHtml(safeMediaUrl)}" controls autoplay muted style="width: 100%; height: 100%; object-fit: cover;"></video>
         `;
       } else {
         previewWrap.innerHTML = `
-          <img src="${escapeHtml(rawMedia + cacheBuster)}" alt="Reel Cover" style="width: 100%; height: 100%; object-fit: cover;">
+          <img src="${escapeHtml(safeMediaUrl)}" alt="Reel Cover" style="width: 100%; height: 100%; object-fit: cover;">
         `;
       }
     }
@@ -634,9 +834,10 @@ function updateModalMediaPreview(post, slideIdx = 0) {
 
   // Static preview
   const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_static.png`);
+  const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
   if (previewWrap) {
     previewWrap.innerHTML = `
-      <img src="${escapeHtml(rawMedia + cacheBuster)}" alt="${escapeHtml(post.title)}" style="width: 100%; height: 100%; object-fit: cover;">
+      <img src="${escapeHtml(safeMediaUrl)}" alt="${escapeHtml(post.title)}" style="width: 100%; height: 100%; object-fit: cover;">
     `;
   }
 }
@@ -697,6 +898,7 @@ async function uploadSelectedFile(file, postId, slideIndex = 0) {
     return;
   }
 
+  showToast(`⏳ Processing ${file.name}...`, 'info');
   const statusEl = document.getElementById('upload-status');
   if (statusEl) {
     statusEl.style.display = 'block';
@@ -705,15 +907,12 @@ async function uploadSelectedFile(file, postId, slideIndex = 0) {
   }
 
   try {
-    const base64Data = await readFileAsBase64(file);
+    // Automatically optimize images client-side (scales photos to crisp ~300KB)
+    const base64Data = await optimizeImageFile(file);
 
-    // Save immediately to client localStorage so it survives page reloads and serverless restarts
+    // Save permanently to IndexedDB and localStorage
     const storageKey = `gg_custom_media_${post.id}_${post.format === 'carousel' ? slideIndex : 'main'}`;
-    try {
-      localStorage.setItem(storageKey, base64Data);
-    } catch (quotaErr) {
-      console.warn('LocalStorage save skipped (quota limit):', quotaErr);
-    }
+    await setPersistedMedia(storageKey, base64Data);
 
     // Immediately update in-memory post and UI
     const idx = findPostIndex(post.id);
@@ -732,37 +931,34 @@ async function uploadSelectedFile(file, postId, slideIndex = 0) {
       renderCurrentView();
     }
 
-    // Attempt to persist on the server / memory cache
-    try {
-      const res = await fetch(`/api/posts/${post.id}/upload-media`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: file.name,
-          data: base64Data,
-          slideIndex: post.format === 'carousel' ? slideIndex : undefined
-        })
-      });
+    // Background sync to server if size allows (under 4MB)
+    if (base64Data.length < 4 * 1024 * 1024) {
+      try {
+        const res = await fetch(`/api/posts/${post.id}/upload-media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            data: base64Data,
+            slideIndex: post.format === 'carousel' ? slideIndex : undefined
+          })
+        });
 
-      if (res.ok) {
-        const result = await res.json();
-        if (idx !== -1 && result.post) {
-          posts[idx] = result.post;
-          // Keep base64 active if on serverless read-only mode
-          if (base64Data) {
+        if (res.ok) {
+          const result = await res.json();
+          if (idx !== -1 && result.post) {
+            // Keep base64Data active for crisp local display while server records public URL
             if (posts[idx].format === 'carousel' && Array.isArray(posts[idx].media)) {
               posts[idx].media[slideIndex] = base64Data;
             } else {
               posts[idx].media = base64Data;
             }
+            posts[idx].isCustomMedia = true;
           }
-          posts[idx].isCustomMedia = true;
-          updateModalMediaPreview(posts[idx], slideIndex);
-          renderCurrentView();
         }
+      } catch (serverErr) {
+        console.warn('Server upload background sync warning:', serverErr.message);
       }
-    } catch (serverErr) {
-      console.warn('Server upload background sync warning:', serverErr.message);
     }
 
     if (statusEl) {
@@ -770,7 +966,7 @@ async function uploadSelectedFile(file, postId, slideIndex = 0) {
       statusEl.textContent = `✓ Uploaded successfully from device!`;
     }
 
-    showToast(`Media updated successfully for Post ${post.id}!`, 'success');
+    showToast(`✓ Media updated successfully for Post ${post.id}!`, 'success');
   } catch (err) {
     if (statusEl) {
       statusEl.style.color = '#DC2626';
@@ -793,10 +989,10 @@ async function resetCurrentPostMedia() {
   const post = findPost(currentEditPostId);
   if (!post) return;
 
-  // Clear localStorage for this post
-  localStorage.removeItem(`gg_custom_media_${post.id}_main`);
+  // Clear persisted storage for this post
+  await removePersistedMedia(`gg_custom_media_${post.id}_main`);
   for (let i = 0; i < 10; i++) {
-    localStorage.removeItem(`gg_custom_media_${post.id}_${i}`);
+    await removePersistedMedia(`gg_custom_media_${post.id}_${i}`);
   }
 
   try {
@@ -837,12 +1033,15 @@ async function resetCurrentPostMedia() {
 }
 
 function quickUploadForPost(postId) {
-  currentQuickUploadPostId = postId;
+  const post = findPost(postId);
+  if (!post) return;
+  currentQuickUploadPostId = post.id;
+  const currentSlide = post.format === 'carousel' ? (carouselIndexState[post.id] || 0) : 0;
   const input = document.getElementById('global-quick-media-input');
   if (input) {
     input.onchange = (e) => {
       if (e.target.files && e.target.files[0]) {
-        uploadSelectedFile(e.target.files[0], currentQuickUploadPostId, 0);
+        uploadSelectedFile(e.target.files[0], currentQuickUploadPostId, currentSlide);
         e.target.value = '';
       }
     };
@@ -1175,23 +1374,25 @@ function openMobilePreview(postId) {
 
   if (!modal || !mediaContainer) return;
 
-  const cacheBuster = mediaCacheBusters[post.id] ? `?t=${mediaCacheBusters[post.id]}` : '';
   let mediaHtml = '';
   if (post.format === 'carousel' && Array.isArray(post.media)) {
     const curIndex = carouselIndexState[post.id] || 0;
     const safeIdx = Math.min(Math.max(0, curIndex), post.media.length - 1);
-    mediaHtml = `<img src="${escapeHtml(post.media[safeIdx]) + cacheBuster}" alt="Carousel Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
+    const safeMediaUrl = getMediaUrlWithCacheBuster(post.media[safeIdx], post.id);
+    mediaHtml = `<img src="${escapeHtml(safeMediaUrl)}" alt="Carousel Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
   } else if (post.format === 'reel') {
     const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_reel.png`);
-    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4');
+    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4') || String(rawMedia).startsWith('data:video');
+    const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
     if (isVideo) {
-      mediaHtml = `<video src="${escapeHtml(rawMedia) + cacheBuster}" controls autoplay muted loop style="max-height: 480px; width: 100%; object-fit: contain;"></video>`;
+      mediaHtml = `<video src="${escapeHtml(safeMediaUrl)}" controls autoplay muted loop style="max-height: 480px; width: 100%; object-fit: contain;"></video>`;
     } else {
-      mediaHtml = `<img src="${escapeHtml(rawMedia) + cacheBuster}" alt="Reel Preview" style="max-height: 480px; width: 100%; object-fit: contain;">`;
+      mediaHtml = `<img src="${escapeHtml(safeMediaUrl)}" alt="Reel Preview" style="max-height: 480px; width: 100%; object-fit: contain;">`;
     }
   } else {
     const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
-    mediaHtml = `<img src="${escapeHtml(rawMedia) + cacheBuster}" alt="Static Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
+    const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
+    mediaHtml = `<img src="${escapeHtml(safeMediaUrl)}" alt="Static Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
   }
 
   mediaContainer.innerHTML = mediaHtml;
@@ -1255,13 +1456,12 @@ function openPublishConfirmModal(postId) {
 
   const thumbContainer = document.getElementById('publish-preview-thumb');
   if (thumbContainer) {
-    const cacheBuster = mediaCacheBusters[post.id] ? `?t=${mediaCacheBusters[post.id]}` : '';
     let mediaFile = Array.isArray(post.media) ? post.media[0] : post.media;
-    if (post.format === 'reel' || (typeof mediaFile === 'string' && mediaFile.endsWith('.mp4'))) {
+    if (!post.isCustomMedia && (post.format === 'reel' || (typeof mediaFile === 'string' && mediaFile.endsWith('.mp4')))) {
       mediaFile = `/generated/post_${post.id}_reel.png`;
     }
-    mediaFile += cacheBuster;
-    thumbContainer.innerHTML = `<img src="${escapeHtml(mediaFile)}" alt="Preview" style="width: 100%; height: 100%; object-fit: contain;">`;
+    const safeThumbUrl = getMediaUrlWithCacheBuster(mediaFile, post.id);
+    thumbContainer.innerHTML = `<img src="${escapeHtml(safeThumbUrl)}" alt="Preview" style="width: 100%; height: 100%; object-fit: contain;">`;
   }
 
   const checkEl = document.getElementById('human-approval-check');

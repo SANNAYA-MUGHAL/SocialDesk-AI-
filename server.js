@@ -641,6 +641,26 @@ export async function handleRequest(req, res) {
             publishOptions.accessToken = auth.slice(7).trim();
           }
         }
+
+        // Resolve customMedia if passed as base64 data URI
+        const incomingCustom = body?.options?.customMedia || (typeof post.media === 'string' && post.media.startsWith('data:') ? post.media : null);
+        if (incomingCustom && typeof incomingCustom === 'string' && incomingCustom.startsWith('data:')) {
+          const matches = incomingCustom.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            const mime = matches[1].toLowerCase();
+            const base64Content = matches[2];
+            let ext = 'png';
+            if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+            else if (mime.includes('mp4')) ext = 'mp4';
+            const safeFilename = `post_${post.id}_custom_live_${Date.now()}.${ext}`;
+            const fileBuffer = Buffer.from(base64Content, 'base64');
+            const publicUrl = saveUploadedMedia(safeFilename, fileBuffer, mime);
+            post.media = publicUrl;
+            post.isCustomMedia = true;
+            publishOptions.customMedia = publicUrl;
+          }
+        }
+
         const publishResult = await publishPostToMeta(post, publishOptions);
         post.status = 'Published';
         post.publishedAt = publishResult.publishedAt;

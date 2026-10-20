@@ -194,12 +194,16 @@ export async function publishPostToMeta(post, options = {}) {
   const baseAppUrl = (cfg.baseUrl || 'https://social-desk-ai.vercel.app').replace(/\/$/, '');
   
   // Resolve image URL (must be public absolute URL for Meta Graph API)
-  const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
+  const rawMedia = cfg.customMedia || (Array.isArray(post.media) ? post.media[0] : post.media);
   let cleanMedia = (rawMedia || '').replace(/^\/+/, '');
   if (cleanMedia.endsWith('.mp4')) {
     cleanMedia = cleanMedia.replace(/\.mp4$/, '.png');
   }
-  const publicImageUrl = cleanMedia.startsWith('http') ? cleanMedia : `${baseAppUrl}/${cleanMedia}`;
+  let publicImageUrl = cleanMedia.startsWith('http') ? cleanMedia : `${baseAppUrl}/${cleanMedia}`;
+  if (cleanMedia.startsWith('data:')) {
+    // If a raw data: URI somehow bypassed server conversion, fallback to generated creative URL
+    publicImageUrl = `${baseAppUrl}/generated/post_${post.id}_static.png`;
+  }
 
   // If running in explicit mock/test mode
   if (cfg.mockPublish) {

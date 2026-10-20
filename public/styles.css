@@ -1507,3 +1507,26 @@ textarea.form-control {
   border-color: #FFFFFF;
   transform: translateY(-1px);
 }
+
+.custom-media-badge-pill {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(104, 61, 169, 0.92);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(4px);
+  z-index: 5;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.media-preview-container.drag-active {
+  outline: 3px dashed #9B60E0;
+  outline-offset: -4px;
+}
