@@ -79,6 +79,17 @@ if (typeof window !== 'undefined') {
   window.handleCardDragOver = handleCardDragOver;
   window.handleCardDragLeave = handleCardDragLeave;
   window.handleCardDrop = handleCardDrop;
+  window.isVideoMedia = isVideoMedia;
+}
+
+// Universal video detector: checks data URIs, blob URIs with #video, and video extensions
+function isVideoMedia(url) {
+  if (!url || typeof url !== 'string') return false;
+  const clean = url.split('?')[0].toLowerCase().trim();
+  if (clean.startsWith('data:video/')) return true;
+  if (clean.includes('#video')) return true;
+  if (/\.(mp4|mov|webm|m4v|ogv|avi|mkv)(\?|$)/i.test(clean)) return true;
+  return false;
 }
 
 // Safe Cache Buster helper: NEVER append query string to data: or blob: URIs
@@ -91,7 +102,7 @@ function getMediaUrlWithCacheBuster(url, postId) {
   return url + buster;
 }
 
-// IndexedDB storage for unlimited, permanent client-side media persistence
+// IndexedDB storage for unlimited, permanent client-side media persistence (supports photos & large videos)
 const GG_DB_NAME = 'GirliesGlowMediaDB';
 const GG_DB_VERSION = 1;
 const GG_STORE_NAME = 'custom_media';
@@ -107,7 +118,7 @@ function openMediaDB() {
         resolved = true;
         resolve(null);
       }
-    }, 400);
+    }, 1500);
 
     try {
       const request = indexedDB.open(GG_DB_NAME, GG_DB_VERSION);
@@ -150,18 +161,19 @@ function openMediaDB() {
 }
 
 async function setPersistedMedia(key, value) {
-  // 1. Also try localStorage if available and within quota
-  if (typeof localStorage !== 'undefined') {
+  // 1. Only store in localStorage if small string (< 2MB) to avoid QuotaExceededError on videos
+  if (typeof localStorage !== 'undefined' && typeof value === 'string' && value.length < 2 * 1024 * 1024) {
     try {
       localStorage.setItem(key, value);
     } catch (_) {}
   }
-  // 2. IndexedDB (handles large images & videos without quota limits)
+  // 2. IndexedDB (handles large images & videos of 100MB+ without quota limits)
   const db = await openMediaDB();
   if (db) {
     try {
       await new Promise((resolve) => {
-        const timer = setTimeout(() => resolve(false), 500);
+        // Generous 10s timeout for large video binary writes
+        const timer = setTimeout(() => resolve(false), 10000);
         try {
           const tx = db.transaction(GG_STORE_NAME, 'readwrite');
           tx.objectStore(GG_STORE_NAME).put({ key, value, updatedAt: Date.now() });
@@ -192,18 +204,30 @@ async function getPersistedMedia(key) {
       if (val) return val;
     } catch (_) {}
   }
-  // 2. Try IndexedDB with safety timeout
+  // 2. Try IndexedDB with generous timeout for large video retrieval
   const db = await openMediaDB();
   if (db) {
     try {
       return await new Promise((resolve) => {
-        const timer = setTimeout(() => resolve(null), 350);
+        // 6s timeout so large video blobs / data URIs can be read from disk
+        const timer = setTimeout(() => resolve(null), 6000);
         try {
           const tx = db.transaction(GG_STORE_NAME, 'readonly');
           const req = tx.objectStore(GG_STORE_NAME).get(key);
           req.onsuccess = () => {
             clearTimeout(timer);
-            resolve(req.result ? req.result.value : null);
+            if (req.result) {
+              const resVal = req.result.value;
+              if (resVal instanceof Blob || (typeof File !== 'undefined' && resVal instanceof File)) {
+                const mime = req.result.mimeType || resVal.type || '';
+                const isVid = req.result.isVideo || mime.startsWith('video');
+                resolve(URL.createObjectURL(resVal) + (isVid ? '#video' : ''));
+              } else {
+                resolve(resVal);
+              }
+            } else {
+              resolve(null);
+            }
           };
           req.onerror = () => {
             clearTimeout(timer);
@@ -250,11 +274,29 @@ async function removePersistedMedia(key) {
   }
 }
 
-// Client-side image optimization: scales high-res phone photos to clean, crisp ~300KB
+// Client-side media processor: scales images to ~300KB and normalizes videos
 function optimizeImageFile(file) {
   return new Promise((resolve, reject) => {
-    // If not an image or is SVG/GIF/video, read directly as data URL
-    if (!file.type || !file.type.startsWith('image/') || file.type.includes('svg') || file.type.includes('gif')) {
+    const isVideo = (file.type && file.type.startsWith('video/')) ||
+                    /\.(mp4|mov|webm|m4v|ogv|avi|mkv)$/i.test(file.name);
+
+    if (isVideo) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        let res = reader.result;
+        // Fix for iOS QuickTime videos (.mov): normalize MIME header so Chrome/Firefox/Edge play it smoothly
+        if (typeof res === 'string' && res.startsWith('data:video/quicktime')) {
+          res = res.replace('data:video/quicktime', 'data:video/mp4');
+        }
+        resolve(res);
+      };
+      reader.onerror = (e) => reject(new Error('Failed to read video file: ' + (e.target?.error?.message || 'File read error')));
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // If SVG or GIF, read directly as data URL
+    if (file.type && (file.type.includes('svg') || file.type.includes('gif'))) {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
       reader.onerror = reject;
@@ -684,9 +726,14 @@ function renderMediaPreview(post, currentSlideIndex) {
     const totalSlides = post.media.length;
     const safeIndex = Math.min(Math.max(0, currentSlideIndex), totalSlides - 1);
     const mediaPath = getMediaUrlWithCacheBuster(post.media[safeIndex], post.id);
+    const isVideo = isVideoMedia(post.media[safeIndex]);
 
     return `
-      <img src="${escapeHtml(mediaPath)}" alt="${escapeHtml(post.title)} Slide ${safeIndex + 1}" class="media-img" loading="lazy">
+      ${isVideo ? `
+        <video src="${escapeHtml(mediaPath)}" class="media-video" autoplay muted loop playsinline></video>
+      ` : `
+        <img src="${escapeHtml(mediaPath)}" alt="${escapeHtml(post.title)} Slide ${safeIndex + 1}" class="media-img" loading="lazy">
+      `}
       <div class="carousel-overlay-controls">
         <button type="button" class="carousel-arrow" onclick="changeSlide('${post.id}', -1)">&larr;</button>
         <button type="button" class="carousel-arrow" onclick="changeSlide('${post.id}', 1)">&rarr;</button>
@@ -698,13 +745,13 @@ function renderMediaPreview(post, currentSlideIndex) {
 
   if (post.format === 'reel') {
     const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_reel.png`);
-    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4') || String(rawMedia).startsWith('data:video');
+    const isVideo = isVideoMedia(rawMedia);
     const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
 
     if (isVideo) {
       return `
         <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #180B28;">
-          <video src="${escapeHtml(safeMediaUrl)}" class="media-video" autoplay muted loop playsinline style="object-fit: cover; width: 100%; height: 100%;"></video>
+          <video src="${escapeHtml(safeMediaUrl)}" class="media-video" autoplay muted loop playsinline></video>
           <div style="position: absolute; top: 12px; left: 12px; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px); color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(255, 255, 255, 0.2); z-index: 4;">
             ▶ REEL (9:16)
           </div>
@@ -724,9 +771,23 @@ function renderMediaPreview(post, currentSlideIndex) {
     `;
   }
 
-  // Static post
+  // Static post (also supports video if user uploaded a video clip)
   const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
+  const isVideo = isVideoMedia(rawMedia);
   const mediaFile = getMediaUrlWithCacheBuster(rawMedia, post.id);
+
+  if (isVideo) {
+    return `
+      <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #180B28;">
+        <video src="${escapeHtml(mediaFile)}" class="media-video" autoplay muted loop playsinline></video>
+        <div style="position: absolute; top: 12px; left: 12px; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px); color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(255, 255, 255, 0.2); z-index: 4;">
+          ▶ VIDEO
+        </div>
+        ${post.isCustomMedia ? '<div class="custom-media-badge-pill">Custom Media</div>' : ''}
+      </div>
+    `;
+  }
+
   return `
     <img src="${escapeHtml(mediaFile)}" alt="${escapeHtml(post.title)}" class="media-img" loading="lazy">
     ${post.isCustomMedia ? '<div class="custom-media-badge-pill">Custom Media</div>' : ''}
@@ -921,8 +982,13 @@ function updateModalMediaPreview(post, slideIdx = 0) {
 
     const safeIdx = Math.min(Math.max(0, slideIdx), post.media.length - 1);
     const mediaSrc = getMediaUrlWithCacheBuster(post.media[safeIdx], post.id);
+    const isVideo = isVideoMedia(post.media[safeIdx]);
     if (previewWrap) {
-      previewWrap.innerHTML = `<img src="${escapeHtml(mediaSrc)}" alt="Slide ${safeIdx + 1}" style="width: 100%; height: 100%; object-fit: cover;">`;
+      if (isVideo) {
+        previewWrap.innerHTML = `<video src="${escapeHtml(mediaSrc)}" controls autoplay muted style="width: 100%; height: 100%; object-fit: cover;"></video>`;
+      } else {
+        previewWrap.innerHTML = `<img src="${escapeHtml(mediaSrc)}" alt="Slide ${safeIdx + 1}" style="width: 100%; height: 100%; object-fit: cover;">`;
+      }
     }
     return;
   }
@@ -932,7 +998,7 @@ function updateModalMediaPreview(post, slideIdx = 0) {
   // Reel preview
   if (post.format === 'reel') {
     const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_reel.png`);
-    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4') || String(rawMedia).startsWith('data:video');
+    const isVideo = isVideoMedia(rawMedia);
     const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
     if (previewWrap) {
       if (isVideo) {
@@ -951,10 +1017,17 @@ function updateModalMediaPreview(post, slideIdx = 0) {
   // Static preview
   const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_static.png`);
   const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
+  const isVideo = isVideoMedia(rawMedia);
   if (previewWrap) {
-    previewWrap.innerHTML = `
-      <img src="${escapeHtml(safeMediaUrl)}" alt="${escapeHtml(post.title)}" style="width: 100%; height: 100%; object-fit: cover;">
-    `;
+    if (isVideo) {
+      previewWrap.innerHTML = `
+        <video src="${escapeHtml(safeMediaUrl)}" controls autoplay muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+      `;
+    } else {
+      previewWrap.innerHTML = `
+        <img src="${escapeHtml(safeMediaUrl)}" alt="${escapeHtml(post.title)}" style="width: 100%; height: 100%; object-fit: cover;">
+      `;
+    }
   }
 }
 
@@ -1008,30 +1081,56 @@ async function uploadSelectedFile(file, postId, slideIndex = 0) {
     return;
   }
 
-  // Validate size (max 50MB)
-  if (file.size > 50 * 1024 * 1024) {
-    showToast('File too large. Maximum size is 50MB.', 'error');
+  // Validate size (max 100MB)
+  if (file.size > 100 * 1024 * 1024) {
+    showToast('File too large. Maximum size is 100MB.', 'error');
     return;
   }
 
-  showToast(`⏳ Processing ${file.name}...`, 'info');
+  const isVideo = (file.type && file.type.startsWith('video/')) ||
+                  /\.(mp4|mov|webm|m4v|ogv|avi|mkv)$/i.test(file.name);
+
   const statusEl = document.getElementById('upload-status');
+  const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+  const msg = isVideo ? `⏳ Loading video ${file.name} (${sizeMb} MB)...` : `⏳ Processing ${file.name}...`;
+  showToast(msg, 'info');
   if (statusEl) {
     statusEl.style.display = 'block';
     statusEl.style.color = '#683DA9';
-    statusEl.textContent = `⏳ Processing ${file.name}...`;
+    statusEl.textContent = msg;
   }
 
   try {
-    // Automatically optimize images client-side (scales photos to crisp ~300KB)
+    // 1. Instant local preview for videos via ObjectURL
+    let instantMediaUrl = null;
+    if (isVideo && typeof URL !== 'undefined' && URL.createObjectURL) {
+      try {
+        instantMediaUrl = URL.createObjectURL(file) + '#video';
+      } catch (_) {}
+    }
+
+    const idx = findPostIndex(post.id);
+    if (idx !== -1 && instantMediaUrl) {
+      if (post.format === 'carousel' && Array.isArray(posts[idx].media)) {
+        if (!posts[idx].originalMedia) posts[idx].originalMedia = [...posts[idx].media];
+        posts[idx].media[slideIndex] = instantMediaUrl;
+      } else {
+        if (!posts[idx].originalMedia) posts[idx].originalMedia = posts[idx].media;
+        posts[idx].media = instantMediaUrl;
+      }
+      posts[idx].isCustomMedia = true;
+      updateModalMediaPreview(posts[idx], slideIndex);
+      renderCurrentView();
+    }
+
+    // 2. Read and optimize / normalize
     const base64Data = await optimizeImageFile(file);
 
-    // Save permanently to IndexedDB and localStorage
+    // 3. Save permanently to IndexedDB
     const storageKey = `gg_custom_media_${post.id}_${post.format === 'carousel' ? slideIndex : 'main'}`;
     await setPersistedMedia(storageKey, base64Data);
 
-    // Immediately update in-memory post and UI
-    const idx = findPostIndex(post.id);
+    // 4. Update in-memory post and UI with permanent data
     if (idx !== -1) {
       if (post.format === 'carousel' && Array.isArray(posts[idx].media)) {
         if (!posts[idx].originalMedia) posts[idx].originalMedia = [...posts[idx].media];
@@ -1047,10 +1146,10 @@ async function uploadSelectedFile(file, postId, slideIndex = 0) {
       renderCurrentView();
     }
 
-    // Background sync to server if size allows (under 4MB)
+    // 5. Background sync to server if size allows (under 4MB)
     if (base64Data.length < 4 * 1024 * 1024) {
       try {
-        const res = await fetch(`/api/posts/${post.id}/upload-media`, {
+        fetch(`/api/posts/${post.id}/upload-media`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1058,32 +1157,18 @@ async function uploadSelectedFile(file, postId, slideIndex = 0) {
             data: base64Data,
             slideIndex: post.format === 'carousel' ? slideIndex : undefined
           })
-        });
-
-        if (res.ok) {
-          const result = await res.json();
-          if (idx !== -1 && result.post) {
-            // Keep base64Data active for crisp local display while server records public URL
-            if (posts[idx].format === 'carousel' && Array.isArray(posts[idx].media)) {
-              posts[idx].media[slideIndex] = base64Data;
-            } else {
-              posts[idx].media = base64Data;
-            }
-            posts[idx].isCustomMedia = true;
-          }
-        }
-      } catch (serverErr) {
-        console.warn('Server upload background sync warning:', serverErr.message);
-      }
+        }).catch(() => {});
+      } catch (_) {}
     }
 
     if (statusEl) {
       statusEl.style.color = '#15803D';
-      statusEl.textContent = `✓ Uploaded successfully from device!`;
+      statusEl.textContent = `✓ ${isVideo ? 'Video' : 'Media'} uploaded successfully!`;
     }
 
-    showToast(`✓ Media updated successfully for Post ${post.id}!`, 'success');
+    showToast(`✓ ${isVideo ? 'Video' : 'Media'} updated successfully for Post ${post.id}!`, 'success');
   } catch (err) {
+    console.error('Upload error:', err);
     if (statusEl) {
       statusEl.style.color = '#DC2626';
       statusEl.textContent = `✕ Upload failed: ${err.message}`;
@@ -1537,10 +1622,15 @@ function openMobilePreview(postId) {
     const curIndex = carouselIndexState[post.id] || 0;
     const safeIdx = Math.min(Math.max(0, curIndex), post.media.length - 1);
     const safeMediaUrl = getMediaUrlWithCacheBuster(post.media[safeIdx], post.id);
-    mediaHtml = `<img src="${escapeHtml(safeMediaUrl)}" alt="Carousel Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
+    const isVideo = isVideoMedia(post.media[safeIdx]);
+    if (isVideo) {
+      mediaHtml = `<video src="${escapeHtml(safeMediaUrl)}" controls autoplay muted loop style="max-height: 400px; width: 100%; object-fit: contain;"></video>`;
+    } else {
+      mediaHtml = `<img src="${escapeHtml(safeMediaUrl)}" alt="Carousel Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
+    }
   } else if (post.format === 'reel') {
     const rawMedia = Array.isArray(post.media) ? post.media[0] : (post.media || `/generated/post_${post.id}_reel.png`);
-    const isVideo = String(rawMedia).toLowerCase().endsWith('.mp4') || String(rawMedia).startsWith('data:video');
+    const isVideo = isVideoMedia(rawMedia);
     const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
     if (isVideo) {
       mediaHtml = `<video src="${escapeHtml(safeMediaUrl)}" controls autoplay muted loop style="max-height: 480px; width: 100%; object-fit: contain;"></video>`;
@@ -1549,8 +1639,13 @@ function openMobilePreview(postId) {
     }
   } else {
     const rawMedia = Array.isArray(post.media) ? post.media[0] : post.media;
+    const isVideo = isVideoMedia(rawMedia);
     const safeMediaUrl = getMediaUrlWithCacheBuster(rawMedia, post.id);
-    mediaHtml = `<img src="${escapeHtml(safeMediaUrl)}" alt="Static Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
+    if (isVideo) {
+      mediaHtml = `<video src="${escapeHtml(safeMediaUrl)}" controls autoplay muted loop style="max-height: 400px; width: 100%; object-fit: contain;"></video>`;
+    } else {
+      mediaHtml = `<img src="${escapeHtml(safeMediaUrl)}" alt="Static Preview" style="max-height: 400px; width: 100%; object-fit: contain;">`;
+    }
   }
 
   mediaContainer.innerHTML = mediaHtml;

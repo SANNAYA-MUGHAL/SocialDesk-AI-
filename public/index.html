@@ -204,10 +204,10 @@
               </div>
 
               <div id="media-dropzone" class="media-dropzone" onclick="triggerFileInput()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
-                <input type="file" id="media-file-input" style="display: none;" accept="image/*,video/*,image/png,image/jpeg,image/webp,video/mp4,video/quicktime" onchange="handleFileSelected(event)">
+                <input type="file" id="media-file-input" style="display: none;" accept="image/*,video/*,.mp4,.mov,.webm,.m4v,.png,.jpg,.jpeg,.webp" onchange="handleFileSelected(event)">
                 <div class="dropzone-icon">📤</div>
                 <div class="dropzone-title">Upload Image or Video from Device</div>
-                <div class="dropzone-hint">Click or drag &amp; drop to replace (PNG, JPG, MP4 reel up to 50MB)</div>
+                <div class="dropzone-hint">Click or drag &amp; drop to replace (PNG, JPG, MP4, MOV videos up to 100MB)</div>
               </div>
               <div id="upload-status" class="upload-status" style="display: none; font-size: 12px; margin-top: 6px; font-weight: 600;"></div>
             </div>
@@ -473,7 +473,7 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Global Quick Media Input (Card click upload) -->
-  <input type="file" id="global-quick-media-input" style="display: none;" accept="image/*,video/*,image/png,image/jpeg,image/webp,video/mp4,video/quicktime">
+  <input type="file" id="global-quick-media-input" style="display: none;" accept="image/*,video/*,.mp4,.mov,.webm,.m4v,.png,.jpg,.jpeg,.webp">
 
   <script src="/app.js"></script>
 </body>
