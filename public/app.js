@@ -95,10 +95,20 @@ function getMediaUrlWithCacheBuster(url, postId) {
 const GG_DB_NAME = 'GirliesGlowMediaDB';
 const GG_DB_VERSION = 1;
 const GG_STORE_NAME = 'custom_media';
+let cachedMediaDB = null;
 
 function openMediaDB() {
+  if (cachedMediaDB) return Promise.resolve(cachedMediaDB);
   return new Promise((resolve) => {
     if (typeof indexedDB === 'undefined') return resolve(null);
+    let resolved = false;
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(null);
+      }
+    }, 400);
+
     try {
       const request = indexedDB.open(GG_DB_NAME, GG_DB_VERSION);
       request.onupgradeneeded = (e) => {
@@ -107,77 +117,135 @@ function openMediaDB() {
           db.createObjectStore(GG_STORE_NAME, { keyPath: 'key' });
         }
       };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => resolve(null);
+      request.onsuccess = (e) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          cachedMediaDB = e.target.result;
+          resolve(cachedMediaDB);
+        }
+      };
+      request.onerror = () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(null);
+        }
+      };
+      request.onblocked = () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(null);
+        }
+      };
     } catch (_) {
-      resolve(null);
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve(null);
+      }
     }
   });
 }
 
 async function setPersistedMedia(key, value) {
-  // 1. IndexedDB (handles large images & videos without quota limits)
-  const db = await openMediaDB();
-  if (db) {
-    try {
-      await new Promise((resolve) => {
-        const tx = db.transaction(GG_STORE_NAME, 'readwrite');
-        tx.objectStore(GG_STORE_NAME).put({ key, value, updatedAt: Date.now() });
-        tx.oncomplete = () => resolve(true);
-        tx.onerror = () => resolve(false);
-      });
-    } catch (e) {
-      console.warn('IndexedDB set warning:', e);
-    }
-  }
-  // 2. Also try localStorage if available and within quota
+  // 1. Also try localStorage if available and within quota
   if (typeof localStorage !== 'undefined') {
     try {
       localStorage.setItem(key, value);
     } catch (_) {}
   }
-}
-
-async function getPersistedMedia(key) {
-  // 1. Try IndexedDB
+  // 2. IndexedDB (handles large images & videos without quota limits)
   const db = await openMediaDB();
   if (db) {
     try {
-      const val = await new Promise((resolve) => {
-        const tx = db.transaction(GG_STORE_NAME, 'readonly');
-        const req = tx.objectStore(GG_STORE_NAME).get(key);
-        req.onsuccess = () => resolve(req.result ? req.result.value : null);
-        req.onerror = () => resolve(null);
+      await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(false), 500);
+        try {
+          const tx = db.transaction(GG_STORE_NAME, 'readwrite');
+          tx.objectStore(GG_STORE_NAME).put({ key, value, updatedAt: Date.now() });
+          tx.oncomplete = () => {
+            clearTimeout(timer);
+            resolve(true);
+          };
+          tx.onerror = () => {
+            clearTimeout(timer);
+            resolve(false);
+          };
+        } catch (_) {
+          clearTimeout(timer);
+          resolve(false);
+        }
       });
+    } catch (e) {
+      console.warn('IndexedDB set warning:', e);
+    }
+  }
+}
+
+async function getPersistedMedia(key) {
+  // 1. Fast synchronous check from localStorage first
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const val = localStorage.getItem(key);
       if (val) return val;
     } catch (_) {}
   }
-  // 2. Fallback to localStorage
-  if (typeof localStorage !== 'undefined') {
+  // 2. Try IndexedDB with safety timeout
+  const db = await openMediaDB();
+  if (db) {
     try {
-      return localStorage.getItem(key);
-    } catch (_) {
-      return null;
-    }
+      return await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(null), 350);
+        try {
+          const tx = db.transaction(GG_STORE_NAME, 'readonly');
+          const req = tx.objectStore(GG_STORE_NAME).get(key);
+          req.onsuccess = () => {
+            clearTimeout(timer);
+            resolve(req.result ? req.result.value : null);
+          };
+          req.onerror = () => {
+            clearTimeout(timer);
+            resolve(null);
+          };
+        } catch (_) {
+          clearTimeout(timer);
+          resolve(null);
+        }
+      });
+    } catch (_) {}
   }
   return null;
 }
 
 async function removePersistedMedia(key) {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem(key);
+    } catch (_) {}
+  }
   const db = await openMediaDB();
   if (db) {
     try {
       await new Promise((resolve) => {
-        const tx = db.transaction(GG_STORE_NAME, 'readwrite');
-        tx.objectStore(GG_STORE_NAME).delete(key);
-        tx.oncomplete = () => resolve(true);
-        tx.onerror = () => resolve(false);
+        const timer = setTimeout(() => resolve(false), 350);
+        try {
+          const tx = db.transaction(GG_STORE_NAME, 'readwrite');
+          tx.objectStore(GG_STORE_NAME).delete(key);
+          tx.oncomplete = () => {
+            clearTimeout(timer);
+            resolve(true);
+          };
+          tx.onerror = () => {
+            clearTimeout(timer);
+            resolve(false);
+          };
+        } catch (_) {
+          clearTimeout(timer);
+          resolve(false);
+        }
       });
-    } catch (_) {}
-  }
-  if (typeof localStorage !== 'undefined') {
-    try {
-      localStorage.removeItem(key);
     } catch (_) {}
   }
 }
@@ -314,41 +382,89 @@ async function loadPosts() {
     }
     posts = await res.json();
 
-    // Check if new batch has been deployed, clearing old custom overrides if version changed
-    const BATCH_VERSION = 'v2_october_batch';
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('gg_batch_version') !== BATCH_VERSION) {
-      for (let i = 1; i <= 10; i++) {
-        await removePersistedMedia(`gg_custom_media_${i}_main`);
-        for (let s = 0; s < 10; s++) {
-          await removePersistedMedia(`gg_custom_media_${i}_${s}`);
+    // 1. Instant synchronous localStorage rehydration
+    if (typeof localStorage !== 'undefined') {
+      const BATCH_VERSION = 'v2_october_batch';
+      if (localStorage.getItem('gg_batch_version') !== BATCH_VERSION) {
+        for (let i = 1; i <= 10; i++) {
+          localStorage.removeItem(`gg_custom_media_${i}_main`);
+          for (let s = 0; s < 10; s++) {
+            localStorage.removeItem(`gg_custom_media_${i}_${s}`);
+          }
         }
+        localStorage.setItem('gg_batch_version', BATCH_VERSION);
       }
-      localStorage.setItem('gg_batch_version', BATCH_VERSION);
+      posts.forEach(p => {
+        const customMain = localStorage.getItem(`gg_custom_media_${p.id}_main`);
+        if (customMain) {
+          if (!p.originalMedia) p.originalMedia = p.media;
+          p.media = customMain;
+          p.isCustomMedia = true;
+        }
+        if (p.format === 'carousel' && Array.isArray(p.media)) {
+          p.media = p.media.map((s, idx) => {
+            const customSlide = localStorage.getItem(`gg_custom_media_${p.id}_${idx}`);
+            if (customSlide) {
+              p.isCustomMedia = true;
+              return customSlide;
+            }
+            return s;
+          });
+        }
+      });
     }
 
-    // Rehydrate any custom media uploaded from device saved in IndexedDB / localStorage
+    // 2. Render UI IMMEDIATELY so the grid is never blank
+    updateStats();
+    renderCurrentView();
+
+    // 3. Non-blocking background IndexedDB sync
+    rehydrateFromIndexedDB();
+  } catch (err) {
+    console.error('Failed to load posts:', err);
+    showToast('Failed to load posts: ' + err.message, 'error');
+    const container = document.getElementById('posts-grid');
+    if (container && (!posts || posts.length === 0)) {
+      container.innerHTML = `
+        <div style="grid-column: 1 / -1; padding: 48px; text-align: center; background: white; border-radius: 16px; border: 1px dashed #DC2626; margin: 20px 0;">
+          <p style="font-size: 18px; font-weight: 700; color: #DC2626; margin-bottom: 8px;">⚠️ Unable to Load Posts</p>
+          <p style="font-size: 14px; color: #4B3B68; margin-bottom: 16px;">${escapeHtml(err.message)}</p>
+          <button type="button" class="btn btn-outline-primary" onclick="loadPosts()" style="padding: 8px 20px; font-weight: 700; cursor: pointer;">
+            🔄 Retry Loading
+          </button>
+        </div>
+      `;
+    }
+  }
+}
+
+async function rehydrateFromIndexedDB() {
+  try {
+    let hasChanges = false;
     for (const p of posts) {
       const customMain = await getPersistedMedia(`gg_custom_media_${p.id}_main`);
-      if (customMain) {
+      if (customMain && p.media !== customMain) {
         if (!p.originalMedia) p.originalMedia = p.media;
         p.media = customMain;
         p.isCustomMedia = true;
+        hasChanges = true;
       }
       if (p.format === 'carousel' && Array.isArray(p.media)) {
         for (let idx = 0; idx < p.media.length; idx++) {
           const customSlide = await getPersistedMedia(`gg_custom_media_${p.id}_${idx}`);
-          if (customSlide) {
+          if (customSlide && p.media[idx] !== customSlide) {
             p.isCustomMedia = true;
             p.media[idx] = customSlide;
+            hasChanges = true;
           }
         }
       }
     }
-
-    updateStats();
-    renderCurrentView();
-  } catch (err) {
-    showToast('Failed to load posts: ' + err.message, 'error');
+    if (hasChanges) {
+      renderCurrentView();
+    }
+  } catch (e) {
+    console.warn('Background storage sync warning:', e);
   }
 }
 
@@ -1095,7 +1211,17 @@ async function savePostEdit() {
     }
     const saved = await res.json();
     const idx = findPostIndex(post.id);
-    if (idx !== -1) posts[idx] = saved;
+    if (idx !== -1) {
+      const currentMedia = posts[idx].media;
+      const wasCustom = posts[idx].isCustomMedia;
+      const originalMedia = posts[idx].originalMedia;
+      posts[idx] = { ...posts[idx], ...saved };
+      if (wasCustom) {
+        posts[idx].media = currentMedia;
+        posts[idx].isCustomMedia = true;
+        posts[idx].originalMedia = originalMedia;
+      }
+    }
 
     closeEditModal();
     updateStats();
@@ -1138,7 +1264,15 @@ async function toggleApprove(postId) {
     const updated = await res.json();
     const idx = findPostIndex(post.id);
     if (idx !== -1) {
-      posts[idx] = updated;
+      const currentMedia = posts[idx].media;
+      const wasCustom = posts[idx].isCustomMedia;
+      const originalMedia = posts[idx].originalMedia;
+      posts[idx] = { ...posts[idx], ...updated };
+      if (wasCustom) {
+        posts[idx].media = currentMedia;
+        posts[idx].isCustomMedia = true;
+        posts[idx].originalMedia = originalMedia;
+      }
     }
 
     updateStats();
@@ -1174,7 +1308,17 @@ async function schedulePost(postId) {
     }
 
     const idx = findPostIndex(post.id);
-    if (idx !== -1) posts[idx] = data;
+    if (idx !== -1) {
+      const currentMedia = posts[idx].media;
+      const wasCustom = posts[idx].isCustomMedia;
+      const originalMedia = posts[idx].originalMedia;
+      posts[idx] = { ...posts[idx], ...data };
+      if (wasCustom) {
+        posts[idx].media = currentMedia;
+        posts[idx].isCustomMedia = true;
+        posts[idx].originalMedia = originalMedia;
+      }
+    }
 
     dismissGuardrailAlert();
     updateStats();
@@ -1214,7 +1358,14 @@ async function handleApproveAll() {
     const res = await fetch('/api/posts/approve-all', { method: 'POST' });
     if (!res.ok) throw new Error('Failed to approve all');
     const data = await res.json();
-    posts = data.posts;
+    const prevMediaMap = new Map(posts.map(p => [p.id, { media: p.media, isCustomMedia: p.isCustomMedia, originalMedia: p.originalMedia }]));
+    posts = data.posts.map(p => {
+      const prev = prevMediaMap.get(p.id);
+      if (prev && prev.isCustomMedia) {
+        return { ...p, media: prev.media, isCustomMedia: true, originalMedia: prev.originalMedia };
+      }
+      return p;
+    });
     updateStats();
     renderCurrentView();
     showToast('All 10 posts marked as Approved! ✓', 'success');
@@ -1234,7 +1385,14 @@ async function handleScheduleAll() {
       return;
     }
 
-    posts = data.posts;
+    const prevMediaMap = new Map(posts.map(p => [p.id, { media: p.media, isCustomMedia: p.isCustomMedia, originalMedia: p.originalMedia }]));
+    posts = data.posts.map(p => {
+      const prev = prevMediaMap.get(p.id);
+      if (prev && prev.isCustomMedia) {
+        return { ...p, media: prev.media, isCustomMedia: true, originalMedia: prev.originalMedia };
+      }
+      return p;
+    });
     dismissGuardrailAlert();
     updateStats();
     renderCurrentView();
