@@ -334,9 +334,16 @@ export async function handleRequest(req, res) {
   }
 
   try {
-    // 1. GET /api/posts
-    if (method === 'GET' && pathname === '/api/posts') {
+    // 1. GET /api/posts (and HEAD)
+    if ((method === 'GET' || method === 'HEAD') && pathname === '/api/posts') {
       const posts = getPosts();
+      if (method === 'HEAD') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*'
+        });
+        return res.end();
+      }
       return sendJson(res, 200, posts);
     }
 
